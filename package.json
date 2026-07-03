@@ -1,0 +1,15 @@
+{
+  "name": "wordsmith",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Screenwriting for iPhone — thumb-reach screenplay input as a PWA",
+  "scripts": {
+    "serve": "node tools/serve.mjs",
+    "icons": "node tools/make-icons.mjs",
+    "test": "playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.56.1"
+  }
+}
