@@ -65,8 +65,9 @@ export function newElement(type = 'action', text = '') {
   return { id: uid(), type, text };
 }
 
-export function createScript() {
-  return { id: 'default', title: '', elements: [newElement('scene', '')], updatedAt: Date.now() };
+export function createScript(title = '') {
+  const now = Date.now();
+  return { id: uid(), title, elements: [newElement('scene', '')], createdAt: now, updatedAt: now };
 }
 
 // Promote an action block based on what the user is typing.

@@ -16,7 +16,6 @@ import {
   characterStatName,
   sceneLocation,
 } from './model.js';
-import { save } from './store.js';
 import { recordUse } from './suggest.js';
 
 let script;
@@ -24,11 +23,13 @@ let pageEl;
 let ta;
 let activeIndex = 0;
 let rendering = false;
+let persistCb = () => {};
 const listeners = [];
 
-export function init(theScript, page) {
+export function init(theScript, page, onPersist) {
   script = theScript;
   pageEl = page;
+  persistCb = onPersist || (() => {});
 
   ta = document.createElement('textarea');
   ta.id = 'blockInput';
@@ -127,7 +128,27 @@ function scrollActiveIntoView() {
 
 function touch() {
   script.updatedAt = Date.now();
-  save('script', script);
+  persistCb();
+}
+
+// Swap in a different script (used by the script switcher). The caller is
+// responsible for committing the outgoing block first via commitActive()
+// so its stats land in the outgoing script's scope.
+export function load(theScript) {
+  script = theScript;
+  activeIndex = 0;
+  render();
+  const end = ta.value.length;
+  ta.setSelectionRange(end, end);
+  touch();
+  notify();
+}
+
+// Commit the active block without moving focus (called before switching
+// scripts or exporting).
+export function commitActive() {
+  commit(activeIndex);
+  renderBlockText(activeIndex);
 }
 
 // Normalize a block's text and record usage stats once per distinct text.

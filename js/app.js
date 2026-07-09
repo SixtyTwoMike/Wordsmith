@@ -1,27 +1,83 @@
-// Bootstrap: load state, wire modules, register the service worker, and
-// keep the quick bar pinned above the iOS keyboard.
+// Bootstrap: migrate legacy data, load the script catalog, wire modules,
+// register the service worker, and keep the quick bar pinned above the
+// iOS keyboard.
 
-import { load, save } from './store.js';
-import { createScript, newElement } from './model.js';
+// store.js runs the v1->v2 migration at its own module load, before any
+// module reads storage — so the catalog and stats are already in v2 shape.
+import * as scripts from './scripts.js';
+import * as suggest from './suggest.js';
 import * as editor from './editor.js';
 import * as quickbar from './quickbar.js';
 import * as settings from './settings.js';
+import * as switcher from './switcher.js';
 
-const script = load('script', createScript);
-if (!Array.isArray(script.elements) || script.elements.length === 0) {
-  script.elements = [newElement('scene', '')];
-}
+const current = scripts.initCatalog();
+suggest.activateScript(scripts.currentId());
 
 const titleInput = document.getElementById('title');
-titleInput.value = script.title || '';
+
+function updateHeader() {
+  titleInput.value = scripts.currentScript().title || '';
+}
+
+updateHeader();
 titleInput.addEventListener('input', () => {
-  script.title = titleInput.value;
-  save('script', script);
+  scripts.rename(scripts.currentId(), titleInput.value);
 });
 
-editor.init(script, document.getElementById('page'));
+editor.init(current, document.getElementById('page'), () =>
+  scripts.syncMeta(editor.getScript())
+);
 quickbar.init();
 settings.init(() => quickbar.refresh());
+
+// Switch the whole app to a different script: commit the outgoing block
+// first (so its stats stay in the outgoing scope), then re-point stats and
+// swap the editor's script.
+function openScript(id) {
+  editor.commitActive();
+  const s = scripts.switchTo(id);
+  if (!s) return;
+  suggest.activateScript(id);
+  editor.load(s);
+  quickbar.refresh();
+  updateHeader();
+}
+
+switcher.init({
+  list: () => scripts.list(),
+  currentId: () => scripts.currentId(),
+  onOpen: openScript,
+  onNew: () => {
+    editor.commitActive();
+    const s = scripts.create();
+    suggest.activateScript(s.id);
+    editor.load(s);
+    quickbar.refresh();
+    updateHeader();
+    titleInput.focus();
+  },
+  onRename: (id, title) => scripts.rename(id, title),
+  onDuplicate: (id) => {
+    editor.commitActive();
+    const res = scripts.duplicate(id);
+    if (!res) return;
+    suggest.copyScriptData(res.fromId, res.toId);
+    suggest.activateScript(res.toId);
+    editor.load(res.script);
+    quickbar.refresh();
+    updateHeader();
+  },
+  onDelete: (id) => {
+    suggest.removeScriptData(id);
+    const s = scripts.remove(id);
+    suggest.activateScript(s.id);
+    editor.load(s);
+    quickbar.refresh();
+    updateHeader();
+  },
+});
+
 quickbar.refresh();
 
 // iOS Safari does not resize the layout viewport when the keyboard opens;
