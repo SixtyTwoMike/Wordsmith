@@ -196,8 +196,8 @@ body {
 
 .qb-fixed { display: flex; gap: 6px; }
 
-/* ---------- sheets (settings + scripts + outline + export) ---------- */
-#settingsSheet, #scriptsSheet, #outlineSheet, #exportSheet {
+/* ---------- sheets (settings + scripts + outline + export + profile) ---------- */
+#settingsSheet, #scriptsSheet, #outlineSheet, #exportSheet, #profileSheet {
   position: fixed;
   inset: 0;
   z-index: 30;
@@ -495,3 +495,91 @@ body {
 .scene-jump:active { background: #2f3644; }
 
 .scene-empty { color: var(--dim); font-size: 14px; }
+
+/* ---------- character profile (Personae Dramatis) ---------- */
+.profile-name {
+  margin: 0;
+  font-size: 17px;
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.profile-stats {
+  color: var(--dim);
+  font-size: 13px;
+  margin: 0 0 16px;
+}
+
+.profile-field {
+  display: block;
+  margin-bottom: 12px;
+}
+
+.profile-field > span {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--dim);
+  margin-bottom: 5px;
+}
+
+.profile-field input,
+.profile-field textarea {
+  width: 100%;
+  background: var(--chip-bg);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-size: 16px;
+  font-family: inherit;
+  padding: 10px 12px;
+  outline: none;
+  resize: vertical;
+}
+
+.profile-field textarea { min-height: 60px; line-height: 1.4; }
+
+.profile-sub {
+  margin: 22px 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--dim);
+}
+
+.appearance-list { list-style: none; margin: 0; padding: 0; }
+
+.appearance-list li { margin-bottom: 8px; }
+
+.appearance-jump {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  background: var(--chip-bg);
+  border-radius: 10px;
+  padding: 11px 13px;
+}
+
+.appearance-scene {
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  font-size: 13px;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.appearance-line {
+  font-size: 14px;
+  color: var(--text);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.appearance-jump:active { background: #2f3644; }

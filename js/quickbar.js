@@ -4,6 +4,7 @@
 // textarea never loses focus — the iOS keyboard stays up.
 
 import * as editor from './editor.js';
+import * as profile from './profile.js';
 import { TYPE_LABELS, characterStatName, sceneLocation } from './model.js';
 import { topItems, DEFAULT_TRANSITIONS, getSettings, prefixMatch } from './suggest.js';
 
@@ -17,7 +18,14 @@ export function init() {
   cycleBtn = document.getElementById('cycleType');
   undoBtn = document.getElementById('undoBtn');
   redoBtn = document.getElementById('redoBtn');
-  wireTaps(chipsEl, (chip) => chip._act && chip._act());
+  wireTaps(
+    chipsEl,
+    (chip) => chip._act && chip._act(),
+    // Long-press a character chip to open its Personae Dramatis profile.
+    (chip) => {
+      if (chip.classList.contains('chip-char')) profile.open(chip.textContent);
+    }
+  );
   wireTaps(cycleBtn.parentElement, (chip) => {
     if (chip === cycleBtn) editor.cycleType();
     else if (chip === undoBtn) editor.undo();
@@ -37,10 +45,18 @@ function syncUndoRedo() {
   if (redoBtn) redoBtn.disabled = !editor.canRedo();
 }
 
-function wireTaps(container, act) {
+function wireTaps(container, act, hold) {
   let downChip = null;
   let downX = 0;
   let downY = 0;
+  let held = false;
+  let holdTimer = null;
+
+  const cancelHold = () => {
+    clearTimeout(holdTimer);
+    holdTimer = null;
+  };
+
   container.addEventListener('pointerdown', (e) => {
     const chip = e.target.closest('button.chip');
     if (!chip || chip.id === 'openSettings') return;
@@ -48,13 +64,31 @@ function wireTaps(container, act) {
     downChip = chip;
     downX = e.clientX;
     downY = e.clientY;
+    held = false;
+    if (hold) {
+      holdTimer = setTimeout(() => {
+        held = true;
+        hold(chip);
+      }, 500);
+    }
+  });
+  container.addEventListener('pointermove', (e) => {
+    if (downChip && Math.hypot(e.clientX - downX, e.clientY - downY) > 10) cancelHold();
   });
   container.addEventListener('pointerup', (e) => {
+    cancelHold();
     const chip = e.target.closest('button.chip');
-    if (chip && chip === downChip && Math.hypot(e.clientX - downX, e.clientY - downY) < 10) {
+    // A completed long-press suppresses the tap.
+    if (!held && chip && chip === downChip && Math.hypot(e.clientX - downX, e.clientY - downY) < 10) {
       act(chip);
     }
     downChip = null;
+    held = false;
+  });
+  container.addEventListener('pointercancel', () => {
+    cancelHold();
+    downChip = null;
+    held = false;
   });
 }
 

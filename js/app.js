@@ -13,9 +13,12 @@ import * as settings from './settings.js';
 import * as switcher from './switcher.js';
 import * as outline from './navigator.js';
 import * as exporter from './export.js';
+import * as characters from './characters.js';
+import * as profile from './profile.js';
 
 const current = scripts.initCatalog();
 suggest.activateScript(scripts.currentId());
+characters.activateScript(scripts.currentId());
 
 const titleInput = document.getElementById('title');
 
@@ -35,6 +38,7 @@ quickbar.init();
 settings.init(() => quickbar.refresh());
 outline.init();
 exporter.init();
+profile.init();
 
 // Live page count in the header (1 page ≈ 1 minute of screen time).
 const pageCountEl = document.getElementById('pageCount');
@@ -53,6 +57,7 @@ function openScript(id) {
   const s = scripts.switchTo(id);
   if (!s) return;
   suggest.activateScript(id);
+  characters.activateScript(id);
   editor.load(s);
   quickbar.refresh();
   updateHeader();
@@ -66,6 +71,7 @@ switcher.init({
     editor.commitActive();
     const s = scripts.create();
     suggest.activateScript(s.id);
+    characters.activateScript(s.id);
     editor.load(s);
     quickbar.refresh();
     updateHeader();
@@ -78,7 +84,9 @@ switcher.init({
     const res = scripts.duplicate(id);
     if (!res) return;
     suggest.copyScriptData(res.fromId, res.toId);
+    characters.copyScriptData(res.fromId, res.toId);
     suggest.activateScript(res.toId);
+    characters.activateScript(res.toId);
     editor.load(res.script);
     quickbar.refresh();
     updateHeader();
@@ -87,11 +95,13 @@ switcher.init({
     const wasCurrent = id === scripts.currentId();
     if (wasCurrent) editor.commitActive();
     suggest.removeScriptData(id);
+    characters.removeScriptData(id);
     const s = scripts.remove(id);
     // Only reload the editor if the script we were editing went away;
     // deleting some other script must not disturb the current cursor.
     if (wasCurrent) {
       suggest.activateScript(s.id);
+      characters.activateScript(s.id);
       editor.load(s);
       quickbar.refresh();
       updateHeader();

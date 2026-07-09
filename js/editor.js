@@ -219,6 +219,10 @@ export function undo() {
 }
 
 export function redo() {
+  // Symmetry with undo(): a pending debounced edit must be committed first.
+  // It truncates the redo branch (history.redo() then returns null), so a
+  // fresh edit made right after an undo can't be clobbered by a stale redo.
+  flushCheckpoint();
   const json = history.redo();
   if (json != null) applyState(json);
 }

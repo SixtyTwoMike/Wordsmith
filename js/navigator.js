@@ -43,9 +43,10 @@ function render() {
     if (el.type === 'scene') scenes.push({ i, text: el.text });
   });
 
+  const runtime = pages < 1 ? '<1' : pages.toFixed(1);
   sheet.querySelector('#outlineStats').textContent =
     `${scenes.length} scene${scenes.length === 1 ? '' : 's'} · ` +
-    `${Math.max(1, Math.ceil(pages))} pp · ~${pages.toFixed(1)} min`;
+    `${Math.max(1, Math.ceil(pages))} pp · ~${runtime} min`;
 
   const listEl = sheet.querySelector('#sceneList');
   if (scenes.length === 0) {

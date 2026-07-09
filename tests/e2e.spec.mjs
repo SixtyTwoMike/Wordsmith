@@ -39,6 +39,15 @@ async function speak(page, name, line) {
   await page.keyboard.press('Enter'); // -> action
 }
 
+// Press and hold long enough to trigger a long-press (>500ms).
+async function longPress(page, locator) {
+  const box = await locator.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.waitForTimeout(650);
+  await page.mouse.up();
+}
+
 test('screenplay formatting and enter flow', async ({ page }) => {
   await startScene(page);
   await page.keyboard.type('Sarah wipes the counter.');
@@ -326,6 +335,8 @@ test('exports the current script as Fountain', async ({ page }) => {
   await startScene(page); // scene INT. DINER - NIGHT, on empty action
   await page.keyboard.type('Sarah wipes the counter.');
   await page.keyboard.press('Enter');
+  await page.keyboard.type('THE LIGHTS GO OUT.'); // all-caps action
+  await page.keyboard.press('Enter');
   await speak(page, 'Sarah', 'We open at six.'); // SARAH + dialogue, trailing action
   await chipNamed(page, 'CUT TO:').click(); // transition + new scene
   await page.locator('#title').fill('Night Shift');
@@ -345,8 +356,80 @@ test('exports the current script as Fountain', async ({ page }) => {
   expect(text).toContain('Title: Night Shift');
   expect(text).toContain('INT. DINER - NIGHT');
   expect(text).toContain('Sarah wipes the counter.');
+  expect(text).toContain('!THE LIGHTS GO OUT.'); // all-caps action forced
   expect(text).toContain('SARAH\nWe open at six.'); // cue attached to its dialogue
   expect(text).toContain('> CUT TO:'); // forced transition
+});
+
+test('a new edit after undo abandons the redo branch', async ({ page }) => {
+  await startScene(page);
+  await page.waitForTimeout(500);
+  await page.keyboard.type('AAA');
+  await page.waitForTimeout(500); // checkpoint: action = AAA
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('BBB');
+  await page.waitForTimeout(500); // checkpoint: new block BBB
+
+  await page.locator('#undoBtn').click(); // back to the AAA state
+  let blocks = await getBlocks(page);
+  expect(blocks.some((b) => b.text === 'BBB')).toBe(false);
+
+  // Type a new edit immediately (no debounce wait) then hit redo: the new
+  // edit must survive and the old BBB branch must not come back.
+  await page.locator('#page .el').nth(1).click();
+  await page.keyboard.type('ZZZ');
+  await page.locator('#redoBtn').click();
+
+  blocks = await getBlocks(page);
+  const text = blocks.map((b) => b.text).join('|');
+  expect(text).toContain('ZZZ');
+  expect(blocks.some((b) => b.text === 'BBB')).toBe(false);
+});
+
+test('long-press a character chip opens its profile; edit and jump work', async ({ page }) => {
+  await startScene(page);
+  await speak(page, 'Sarah', 'We open at six.'); // SARAH cue #1
+  await chipNamed(page, 'SARAH').click(); // SARAH cue #2 + empty dialogue
+  await page.keyboard.type('And we close at six.');
+
+  const chip = page.locator('#chips .chip-char', { hasText: 'SARAH' }).first();
+  await longPress(page, chip);
+
+  await expect(page.locator('#profileSheet')).toBeVisible();
+  await expect(page.locator('#profileSheet .profile-name')).toHaveText('SARAH');
+  await expect(page.locator('#profileSheet .appearance-jump')).toHaveCount(2);
+
+  // Edit metadata; it autosaves to the per-script character registry.
+  await page.locator('#profileSheet .profile-field input').first().fill('Sarah Connor');
+  await page.waitForTimeout(500);
+  const saved = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('wordsmith.characters.v1'))
+  );
+  expect(Object.values(saved)[0].SARAH.fullName).toBe('Sarah Connor');
+
+  // Jump to the first appearance.
+  await page.locator('#profileSheet .appearance-jump').first().click();
+  await expect(page.locator('#profileSheet')).toBeHidden();
+  const active = (await getBlocks(page)).find((b) => b.active);
+  expect(active.type).toBe('character');
+  expect(active.text).toBe('SARAH');
+});
+
+test('a character and its (V.O.) form share one profile', async ({ page }) => {
+  await startScene(page);
+  await speak(page, 'Sarah', 'Present tense.'); // SARAH
+  await page.keyboard.press('Tab'); // action -> character
+  await page.keyboard.type('SARAH (V.O.)');
+  await page.keyboard.press('Enter'); // -> dialogue
+  await page.keyboard.type('Voice of memory.');
+
+  const chip = page.locator('#chips .chip-char', { hasText: 'SARAH' }).first();
+  await longPress(page, chip);
+
+  await expect(page.locator('#profileSheet .profile-name')).toHaveText('SARAH');
+  // Both the plain cue and the (V.O.) cue count as appearances of SARAH.
+  await expect(page.locator('#profileSheet .appearance-jump')).toHaveCount(2);
+  await expect(page.locator('#profileSheet .profile-stats')).toContainText('2 appearances');
 });
 
 test('migrates v1 single-script storage to the v2 catalog', async ({ page }) => {

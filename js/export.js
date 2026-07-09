@@ -10,9 +10,33 @@ import * as editor from './editor.js';
 const up = (s) => (s || '').toUpperCase();
 const stripParens = (s) => (s || '').replace(/^\(+/, '').replace(/\)+$/, '').trim();
 
+// Action text can be ambiguous to a Fountain parser: an all-caps line
+// reads as a CHARACTER cue, an INT./EXT. line as a scene heading, a
+// "... TO:" line as a transition, and (only at the very top, with no
+// title page) a "Key: value" line as title-page metadata. Force those
+// with a leading "!" so they round-trip as action.
+function actionNeedsForce(text, atDocStart) {
+  const first = text.split('\n')[0];
+  if (!first) return false;
+  const hasLetter = /[A-Za-z]/.test(first);
+  const allCaps = hasLetter && first === first.toUpperCase();
+  const sceneish = /^(INT|EXT|EST|I\/E)[.\s]/i.test(first);
+  const transitionish = /TO:\s*$/.test(first);
+  const titleKeyish = atDocStart && /^[A-Za-z][^:]*:/.test(first);
+  return allCaps || sceneish || transitionish || titleKeyish;
+}
+
 export function toFountain(script) {
   const els = script.elements || [];
+  const title = (script.title || '').trim();
   const paras = [];
+
+  const pushAction = (text) => {
+    if (!text) return;
+    // atDocStart matters only when there is no title page to terminate.
+    const atDocStart = paras.length === 0 && !title;
+    paras.push(actionNeedsForce(text, atDocStart) ? '!' + text : text);
+  };
 
   for (let i = 0; i < els.length; i++) {
     const el = els[i];
@@ -20,29 +44,29 @@ export function toFountain(script) {
 
     if (el.type === 'character') {
       // A character cue plus its attached parentheticals and dialogue form
-      // one contiguous block (no blank lines inside).
-      const buf = [up(text)];
+      // one contiguous block (no blank lines inside). Empty inner elements
+      // are skipped so they can't split the cue from its dialogue.
+      const buf = text ? [up(text)] : [];
       let j = i + 1;
       while (j < els.length && (els[j].type === 'paren' || els[j].type === 'dialogue')) {
         const t = (els[j].text || '').trim();
-        buf.push(els[j].type === 'paren' ? '(' + stripParens(t) + ')' : t);
+        if (t) buf.push(els[j].type === 'paren' ? '(' + stripParens(t) + ')' : t);
         j++;
       }
-      paras.push(buf.join('\n'));
+      if (buf.length) paras.push(buf.join('\n'));
       i = j - 1;
     } else if (el.type === 'scene') {
-      paras.push(up(text));
+      if (text) paras.push(up(text));
     } else if (el.type === 'transition') {
-      paras.push('> ' + up(text)); // force, so "FADE OUT." isn't read as action
+      if (text) paras.push('> ' + up(text)); // force, so "FADE OUT." isn't read as action
     } else if (el.type === 'paren') {
-      paras.push('(' + stripParens(text) + ')'); // orphaned parenthetical
+      if (text) pushAction('(' + stripParens(text) + ')'); // orphaned parenthetical
     } else {
-      paras.push(text); // action or orphaned dialogue
+      pushAction(text); // action or orphaned dialogue
     }
   }
 
-  const body = paras.filter((p) => p !== '').join('\n\n');
-  const title = (script.title || '').trim();
+  const body = paras.join('\n\n');
   const header = title ? 'Title: ' + title + '\n\n' : '';
   return header + body + '\n';
 }
@@ -55,7 +79,9 @@ export function safeName(title, ext) {
       .trim()
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-+|-+$/g, '') || 'untitled';
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60)
+      .replace(/-+$/g, '') || 'untitled';
   return base + '.' + ext;
 }
 
