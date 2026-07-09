@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import fs from 'node:fs';
 
 async function getBlocks(page) {
   return page.$$eval('#page .el', (els) =>
@@ -319,6 +320,33 @@ test('autocomplete completes a learned character name', async ({ page }) => {
   const active = (await getBlocks(page)).find((b) => b.active);
   expect(active.type).toBe('character');
   expect(active.text).toBe('REDDINGTON');
+});
+
+test('exports the current script as Fountain', async ({ page }) => {
+  await startScene(page); // scene INT. DINER - NIGHT, on empty action
+  await page.keyboard.type('Sarah wipes the counter.');
+  await page.keyboard.press('Enter');
+  await speak(page, 'Sarah', 'We open at six.'); // SARAH + dialogue, trailing action
+  await chipNamed(page, 'CUT TO:').click(); // transition + new scene
+  await page.locator('#title').fill('Night Shift');
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    (async () => {
+      await page.locator('#openScripts').click();
+      await page.locator('#exportBtn').click();
+      await page.locator('.export-fmt[data-fmt="fountain"]').click();
+    })(),
+  ]);
+
+  expect(download.suggestedFilename()).toBe('night-shift.fountain');
+  const text = fs.readFileSync(await download.path(), 'utf8');
+
+  expect(text).toContain('Title: Night Shift');
+  expect(text).toContain('INT. DINER - NIGHT');
+  expect(text).toContain('Sarah wipes the counter.');
+  expect(text).toContain('SARAH\nWe open at six.'); // cue attached to its dialogue
+  expect(text).toContain('> CUT TO:'); // forced transition
 });
 
 test('migrates v1 single-script storage to the v2 catalog', async ({ page }) => {

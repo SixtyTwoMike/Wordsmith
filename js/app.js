@@ -12,6 +12,7 @@ import * as quickbar from './quickbar.js';
 import * as settings from './settings.js';
 import * as switcher from './switcher.js';
 import * as outline from './navigator.js';
+import * as exporter from './export.js';
 
 const current = scripts.initCatalog();
 suggest.activateScript(scripts.currentId());
@@ -33,6 +34,7 @@ editor.init(current, document.getElementById('page'), () =>
 quickbar.init();
 settings.init(() => quickbar.refresh());
 outline.init();
+exporter.init();
 
 // Live page count in the header (1 page ≈ 1 minute of screen time).
 const pageCountEl = document.getElementById('pageCount');
@@ -70,6 +72,7 @@ switcher.init({
     titleInput.focus();
   },
   onRename: (id, title) => scripts.rename(id, title),
+  onExport: () => exporter.open(),
   onDuplicate: (id) => {
     editor.commitActive();
     const res = scripts.duplicate(id);

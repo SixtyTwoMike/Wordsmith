@@ -29,12 +29,17 @@ function build() {
     </div>
     <div class="sheet-body">
       <button id="newScript" class="btn-primary">+ New Script</button>
+      <button id="exportBtn" class="btn-secondary">⬆ Export current script</button>
       <ul id="scriptList" class="script-list"></ul>
     </div>`;
   sheet.querySelector('#closeScripts').addEventListener('click', close);
   sheet.querySelector('#newScript').addEventListener('click', () => {
     cfg.onNew();
     close();
+  });
+  sheet.querySelector('#exportBtn').addEventListener('click', () => {
+    close();
+    cfg.onExport();
   });
 }
 
