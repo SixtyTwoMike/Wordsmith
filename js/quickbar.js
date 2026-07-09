@@ -131,6 +131,22 @@ function sceneSuffix(s) {
   editor.updateActiveText((t) => t.replace(SCENE_SUFFIX_RE, '') + s);
 }
 
+// Professional formatting (Phase 5), informed by TV-drama conventions.
+const SCENE_NOTES = ['[FLASHBACK]', '[ARCHIVAL]', '[SURVEILLANCE]'];
+const PAREN_PRESETS = ['beat', 'pause', 'whispers', "cont'd"];
+const CUE_RE = /\s*\((?:V\.O\.|O\.S\.|CONT'D|CONT’D)\)\s*$/i;
+
+// Append a voice cue to a character name, replacing any existing one so
+// (V.O.) then (O.S.) swaps rather than stacking.
+function setCue(cue) {
+  editor.updateActiveText((t) => t.replace(CUE_RE, '').replace(/\s+$/, '') + ' ' + cue);
+}
+
+// Append a bracketed scene notation, replacing any trailing one.
+function sceneNote(tag) {
+  editor.updateActiveText((t) => t.replace(/\s*\[[^\]]*\]\s*$/, '').replace(/\s+$/, '') + ' ' + tag);
+}
+
 function chip(label, act, cls = '') {
   return { label, act, cls };
 }
@@ -141,18 +157,24 @@ function buildChips(type) {
       return [
         chip('INT.', () => scenePrefix('INT. ')),
         chip('EXT.', () => scenePrefix('EXT. ')),
-        ...topItems('locations', 6).map((l) => chip(l, () => setLocation(l))),
+        ...topItems('locations', 5).map((l) => chip(l, () => setLocation(l))),
         chip('- DAY', () => sceneSuffix(' - DAY')),
         chip('- NIGHT', () => sceneSuffix(' - NIGHT')),
+        ...SCENE_NOTES.map((tag) => chip(tag, () => sceneNote(tag))),
       ];
     case 'character':
-      return characterChips().map((n) =>
-        chip(n, () => editor.setCharacterAndDialogue(n), 'chip-char')
-      );
+      return [
+        chip('(V.O.)', () => setCue('(V.O.)')),
+        chip('(O.S.)', () => setCue('(O.S.)')),
+        ...characterChips().map((n) =>
+          chip(n, () => editor.setCharacterAndDialogue(n), 'chip-char')
+        ),
+      ];
     case 'dialogue':
       return [
         chip('( )', () => editor.newBlock('paren', '')),
-        ...characterChips(6).map((n) =>
+        ...PAREN_PRESETS.map((p) => chip('(' + p + ')', () => editor.newBlock('paren', p))),
+        ...characterChips(4).map((n) =>
           chip(n, () => editor.insertCharacterWithDialogue(n), 'chip-char')
         ),
         ...transitionChips(2).map((t) => chip(t, () => editor.insertTransitionThenScene(t))),

@@ -39,8 +39,10 @@ async function speak(page, name, line) {
   await page.keyboard.press('Enter'); // -> action
 }
 
-// Press and hold long enough to trigger a long-press (>500ms).
+// Press and hold long enough to trigger a long-press (>500ms). page.mouse
+// doesn't auto-scroll, so bring the chip into the row's view first.
 async function longPress(page, locator) {
+  await locator.scrollIntoViewIfNeeded();
   const box = await locator.boundingBox();
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await page.mouse.down();
@@ -430,6 +432,34 @@ test('a character and its (V.O.) form share one profile', async ({ page }) => {
   // Both the plain cue and the (V.O.) cue count as appearances of SARAH.
   await expect(page.locator('#profileSheet .appearance-jump')).toHaveCount(2);
   await expect(page.locator('#profileSheet .profile-stats')).toContainText('2 appearances');
+});
+
+test('V.O./O.S. cue, scene notation, and parenthetical presets', async ({ page }) => {
+  await startScene(page); // scene INT. DINER - NIGHT, on empty action
+
+  // Scene notation: go back to the scene block and tag it.
+  await page.locator('#page .el').first().click();
+  await chipNamed(page, '[FLASHBACK]').click();
+  let blocks = await getBlocks(page);
+  expect(blocks[0].text).toBe('INT. DINER - NIGHT [FLASHBACK]');
+
+  // Character V.O. cue (uppercase is applied on commit).
+  await page.locator('#page .el').nth(1).click(); // action block
+  await page.keyboard.press('Tab'); // -> character
+  await page.keyboard.type('Sarah');
+  await chipNamed(page, '(V.O.)').click();
+  await page.keyboard.press('Enter'); // commit character -> dialogue
+  blocks = await getBlocks(page);
+  const charBlock = blocks.find((b) => b.type === 'character');
+  expect(charBlock.text).toBe('SARAH (V.O.)');
+
+  // Parenthetical preset from the dialogue block.
+  await page.keyboard.type('We open at six.');
+  await chipNamed(page, '(beat)').click();
+  blocks = await getBlocks(page);
+  const paren = blocks.find((b) => b.type === 'paren');
+  expect(paren).toBeTruthy();
+  expect(paren.text).toBe('beat');
 });
 
 test('migrates v1 single-script storage to the v2 catalog', async ({ page }) => {
