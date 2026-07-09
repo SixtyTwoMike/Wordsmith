@@ -58,6 +58,18 @@ body {
 
 .topbtn:active { background: #2f3644; }
 
+.topbtn-count {
+  width: auto;
+  min-width: 44px;
+  padding: 0 10px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--dim);
+  white-space: nowrap;
+}
+
+.topbtn-count #pageCount { color: var(--text); }
+
 #title {
   flex: 1;
   min-width: 0;
@@ -165,18 +177,27 @@ body {
 
 .chip-char { color: var(--accent); border-color: rgba(224, 164, 88, 0.45); }
 
+/* Autocomplete completion: leading chip that fills in a learned name. */
+.chip-suggest {
+  color: #1a1408;
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
 .chip-tool {
   border-radius: 12px;
-  padding: 9px 12px;
+  padding: 9px 10px;
   color: var(--dim);
 }
+
+.chip-tool:disabled { opacity: 0.32; }
 
 #cycleType { min-width: 64px; color: var(--text); }
 
 .qb-fixed { display: flex; gap: 6px; }
 
-/* ---------- sheets (settings + scripts) ---------- */
-#settingsSheet, #scriptsSheet {
+/* ---------- sheets (settings + scripts + outline) ---------- */
+#settingsSheet, #scriptsSheet, #outlineSheet {
   position: fixed;
   inset: 0;
   z-index: 30;
@@ -396,3 +417,44 @@ body {
   border-radius: 8px;
   padding: 0 14px;
 }
+
+/* ---------- outline sheet ---------- */
+.outline-stats {
+  color: var(--dim);
+  font-size: 13px;
+  margin: 0 0 14px;
+  letter-spacing: 0.02em;
+}
+
+.scene-list { margin: 0; padding: 0; counter-reset: scene; list-style: none; }
+
+.scene-list li { margin-bottom: 8px; }
+
+.scene-jump {
+  counter-increment: scene;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--chip-bg);
+  color: var(--text);
+  border-radius: 10px;
+  padding: 12px 14px;
+  text-align: left;
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  font-size: 15px;
+  text-transform: uppercase;
+}
+
+.scene-jump::before {
+  content: counter(scene);
+  flex: 0 0 auto;
+  color: var(--accent);
+  font-weight: 700;
+  min-width: 1.4em;
+}
+
+.scene-jump:active { background: #2f3644; }
+
+.scene-empty { color: var(--dim); font-size: 14px; }

@@ -90,6 +90,25 @@ export function characterStatName(text) {
   return text.replace(/\s*\(.*\)\s*$/, '').trim().toUpperCase();
 }
 
+// Rough page estimate (~55 lines per US Letter screenplay page). Each
+// element type wraps at a different width and most carry a blank lead
+// line, mirroring standard margins. Good enough for a live "N pp" gauge
+// and the 1 page ≈ 1 minute runtime rule of thumb.
+const LINE_WIDTH = { scene: 60, action: 60, character: 38, paren: 25, dialogue: 35, transition: 60 };
+const LEAD_LINES = { scene: 1, action: 1, character: 1, paren: 0, dialogue: 0, transition: 1 };
+const LINES_PER_PAGE = 55;
+
+export function estimatePages(elements) {
+  let lines = 0;
+  for (const el of elements) {
+    const width = LINE_WIDTH[el.type] || 60;
+    const text = (el.text || '').trim();
+    const wrapped = text ? Math.ceil(text.length / width) : 1;
+    lines += wrapped + (LEAD_LINES[el.type] || 0);
+  }
+  return lines / LINES_PER_PAGE;
+}
+
 // "INT. DINER - NIGHT" -> "DINER" for usage stats.
 export function sceneLocation(text) {
   let t = text.trim().toUpperCase();

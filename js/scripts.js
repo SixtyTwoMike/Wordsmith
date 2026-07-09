@@ -29,14 +29,23 @@ function persist() {
 export function initCatalog() {
   index = load('scriptIndex', null);
   scripts = load('scripts', () => ({}));
-  const valid = index && Array.isArray(index.scripts) && index.scripts.length > 0;
-  if (!valid) {
+  // The index and the content map are persisted as two independent
+  // debounced writes, so a flush interrupted mid-way (quota, backgrounding,
+  // private mode) can leave the index referencing scripts that aren't in
+  // the map. Treat that — and an empty/corrupt index — as needing a reseed
+  // rather than dereferencing a missing script and dead-booting the app.
+  const hasContent =
+    index && Array.isArray(index.scripts) && index.scripts.some((m) => scripts[m.id]);
+  if (!hasContent) {
     const s = createScript();
     scripts = { [s.id]: s };
     index = { current: s.id, scripts: [meta(s)] };
     persist();
+  } else {
+    // Drop index entries whose content is missing, then repoint current.
+    index.scripts = index.scripts.filter((m) => scripts[m.id]);
+    if (!scripts[index.current]) index.current = index.scripts[0].id;
   }
-  if (!scripts[index.current]) index.current = index.scripts[0].id;
   return currentScript();
 }
 

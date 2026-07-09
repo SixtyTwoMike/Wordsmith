@@ -4,12 +4,14 @@
 
 // store.js runs the v1->v2 migration at its own module load, before any
 // module reads storage — so the catalog and stats are already in v2 shape.
+import { estimatePages } from './model.js';
 import * as scripts from './scripts.js';
 import * as suggest from './suggest.js';
 import * as editor from './editor.js';
 import * as quickbar from './quickbar.js';
 import * as settings from './settings.js';
 import * as switcher from './switcher.js';
+import * as outline from './navigator.js';
 
 const current = scripts.initCatalog();
 suggest.activateScript(scripts.currentId());
@@ -30,6 +32,16 @@ editor.init(current, document.getElementById('page'), () =>
 );
 quickbar.init();
 settings.init(() => quickbar.refresh());
+outline.init();
+
+// Live page count in the header (1 page ≈ 1 minute of screen time).
+const pageCountEl = document.getElementById('pageCount');
+function updatePageCount() {
+  const pages = estimatePages(editor.getScript().elements);
+  pageCountEl.textContent = Math.max(1, Math.ceil(pages));
+}
+editor.onUpdate(updatePageCount);
+updatePageCount();
 
 // Switch the whole app to a different script: commit the outgoing block
 // first (so its stats stay in the outgoing scope), then re-point stats and
@@ -69,12 +81,18 @@ switcher.init({
     updateHeader();
   },
   onDelete: (id) => {
+    const wasCurrent = id === scripts.currentId();
+    if (wasCurrent) editor.commitActive();
     suggest.removeScriptData(id);
     const s = scripts.remove(id);
-    suggest.activateScript(s.id);
-    editor.load(s);
-    quickbar.refresh();
-    updateHeader();
+    // Only reload the editor if the script we were editing went away;
+    // deleting some other script must not disturb the current cursor.
+    if (wasCurrent) {
+      suggest.activateScript(s.id);
+      editor.load(s);
+      quickbar.refresh();
+      updateHeader();
+    }
   },
 });
 

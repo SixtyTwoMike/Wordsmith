@@ -248,6 +248,79 @@ test('duplicate copies content and learned stats; delete removes a script', asyn
   await expect(page.locator('.script-row', { hasText: 'Original' })).toHaveCount(1);
 });
 
+test('scene navigator lists headings and jumps to them', async ({ page }) => {
+  await startScene(page, 'INT. DINER - NIGHT');
+  await page.keyboard.type('Sarah enters.');
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('EXT. STREET - DAY'); // auto-detects to a scene
+
+  await page.locator('#openOutline').click();
+  const items = page.locator('#sceneList .scene-jump');
+  await expect(items).toHaveCount(2);
+  await expect(items.nth(0)).toContainText('INT. DINER - NIGHT');
+  await expect(items.nth(1)).toContainText('EXT. STREET - DAY');
+
+  await items.nth(0).click(); // jump to the first scene
+  const blocks = await getBlocks(page);
+  expect(blocks[0].type).toBe('scene');
+  expect(blocks[0].active).toBe(true);
+});
+
+test('page count grows with content', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#pageCount')).toHaveText('1');
+  await page.locator('#page .el').first().click();
+  await page.keyboard.type('INT. DINER - NIGHT');
+  await page.keyboard.press('Enter');
+  for (let i = 0; i < 50; i++) {
+    await page.keyboard.type('The rain falls hard on the tin roof again tonight.');
+    await page.keyboard.press('Enter');
+  }
+  await expect
+    .poll(async () => Number(await page.locator('#pageCount').textContent()))
+    .toBeGreaterThan(1);
+});
+
+test('undo and redo step through edits', async ({ page }) => {
+  await startScene(page);
+  await page.waitForTimeout(500); // checkpoint: [scene, empty action]
+  await page.keyboard.type('Sarah wipes the counter.');
+  await page.waitForTimeout(500); // checkpoint: action has text
+  await page.keyboard.press('Enter');
+  await page.keyboard.type('She pauses.');
+  await page.waitForTimeout(500); // checkpoint: new block with text
+
+  let blocks = await getBlocks(page);
+  expect(blocks.length).toBe(3);
+
+  await page.locator('#undoBtn').click();
+  blocks = await getBlocks(page);
+  expect(blocks.length).toBe(2);
+  expect(blocks.map((b) => b.text)).toContain('Sarah wipes the counter.');
+  expect(blocks.some((b) => b.text === 'She pauses.')).toBe(false);
+
+  await page.locator('#redoBtn').click();
+  blocks = await getBlocks(page);
+  expect(blocks.length).toBe(3);
+  expect(blocks.some((b) => b.text === 'She pauses.')).toBe(true);
+});
+
+test('autocomplete completes a learned character name', async ({ page }) => {
+  await startScene(page);
+  await speak(page, 'Reddington', 'Talk to me.'); // learns REDDINGTON
+
+  await page.keyboard.press('Tab'); // action -> character
+  await page.keyboard.type('RED');
+
+  const sugg = page.locator('#chips .chip-suggest');
+  await expect(sugg).toHaveText('REDDINGTON');
+  await sugg.click();
+
+  const active = (await getBlocks(page)).find((b) => b.active);
+  expect(active.type).toBe('character');
+  expect(active.text).toBe('REDDINGTON');
+});
+
 test('migrates v1 single-script storage to the v2 catalog', async ({ page }) => {
   // Seed legacy v1 keys before any app code runs (addInitScript executes
   // ahead of the page's own scripts), so migration sees them on first load.

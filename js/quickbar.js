@@ -4,21 +4,37 @@
 // textarea never loses focus — the iOS keyboard stays up.
 
 import * as editor from './editor.js';
-import { TYPE_LABELS } from './model.js';
-import { topItems, DEFAULT_TRANSITIONS, getSettings } from './suggest.js';
+import { TYPE_LABELS, characterStatName, sceneLocation } from './model.js';
+import { topItems, DEFAULT_TRANSITIONS, getSettings, prefixMatch } from './suggest.js';
 
 let chipsEl;
 let cycleBtn;
+let undoBtn;
+let redoBtn;
 
 export function init() {
   chipsEl = document.getElementById('chips');
   cycleBtn = document.getElementById('cycleType');
+  undoBtn = document.getElementById('undoBtn');
+  redoBtn = document.getElementById('redoBtn');
   wireTaps(chipsEl, (chip) => chip._act && chip._act());
   wireTaps(cycleBtn.parentElement, (chip) => {
     if (chip === cycleBtn) editor.cycleType();
+    else if (chip === undoBtn) editor.undo();
+    else if (chip === redoBtn) editor.redo();
     // the settings button keeps its normal click handler (keyboard may drop)
   });
   editor.onActiveChange(refresh);
+  // Update the inline completion chip and undo/redo enabled state on every edit.
+  editor.onUpdate(() => {
+    refreshCompletion();
+    syncUndoRedo();
+  });
+}
+
+function syncUndoRedo() {
+  if (undoBtn) undoBtn.disabled = !editor.canUndo();
+  if (redoBtn) redoBtn.disabled = !editor.canRedo();
 }
 
 function wireTaps(container, act) {
@@ -123,6 +139,43 @@ function buildChips(type) {
   }
 }
 
+/* ---------- autocomplete completion chip ---------- */
+
+// The single leading chip that completes a learned name from the prefix
+// the writer is typing (character names, or the location in a scene
+// heading). Null when there is nothing to complete.
+function currentCompletion() {
+  const type = editor.activeType();
+  const text = editor.activeText() || '';
+  if (type === 'character') {
+    const match = prefixMatch('characters', characterStatName(text), 1)[0];
+    if (match) return { full: match, apply: () => editor.updateActiveText(() => match) };
+  } else if (type === 'scene') {
+    const partial = sceneLocation(text);
+    const match = partial ? prefixMatch('locations', partial, 1)[0] : null;
+    if (match) return { full: match, apply: () => setLocation(match) };
+  }
+  return null;
+}
+
+function refreshCompletion() {
+  if (!chipsEl) return;
+  const c = currentCompletion();
+  let chip = chipsEl.querySelector('.chip-suggest');
+  if (!c) {
+    if (chip) chip.remove();
+    return;
+  }
+  if (!chip) {
+    chip = document.createElement('button');
+    chip.className = 'chip chip-suggest';
+    chipsEl.insertBefore(chip, chipsEl.firstChild);
+  }
+  chip.textContent = c.full;
+  chip.setAttribute('aria-label', 'Complete ' + c.full);
+  chip._act = c.apply;
+}
+
 export function refresh() {
   const type = editor.activeType();
   if (!type) return;
@@ -136,4 +189,6 @@ export function refresh() {
     return b;
   });
   chipsEl.replaceChildren(...buttons);
+  refreshCompletion();
+  syncUndoRedo();
 }

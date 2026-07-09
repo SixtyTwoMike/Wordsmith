@@ -17,14 +17,19 @@ import {
   sceneLocation,
 } from './model.js';
 import { recordUse } from './suggest.js';
+import { createHistory } from './history.js';
 
 let script;
 let pageEl;
 let ta;
 let activeIndex = 0;
 let rendering = false;
+let applying = false;
 let persistCb = () => {};
 const listeners = [];
+const updateListeners = [];
+const history = createHistory(100);
+let histTimer = null;
 
 export function init(theScript, page, onPersist) {
   script = theScript;
@@ -50,14 +55,30 @@ export function init(theScript, page, onPersist) {
   pageEl.addEventListener('pointerdown', onPageTap);
 
   render(false);
+  history.reset(snap());
+  emitUpdate();
 }
 
 export function onActiveChange(fn) {
   listeners.push(fn);
 }
 
+// Fired on every edit (text or structure). Used for the live page count
+// and the autocomplete completion chip.
+export function onUpdate(fn) {
+  updateListeners.push(fn);
+}
+
 function notify() {
   for (const fn of listeners) fn(activeType());
+}
+
+function emitUpdate() {
+  for (const fn of updateListeners) fn();
+}
+
+export function activeText() {
+  return script.elements[activeIndex]?.text ?? '';
 }
 
 export function activeType() {
@@ -129,6 +150,8 @@ function scrollActiveIntoView() {
 function touch() {
   script.updatedAt = Date.now();
   persistCb();
+  emitUpdate();
+  if (!applying) checkpoint();
 }
 
 // Swap in a different script (used by the script switcher). The caller is
@@ -140,6 +163,7 @@ export function load(theScript) {
   render();
   const end = ta.value.length;
   ta.setSelectionRange(end, end);
+  history.reset(snap());
   touch();
   notify();
 }
@@ -149,6 +173,62 @@ export function load(theScript) {
 export function commitActive() {
   commit(activeIndex);
   renderBlockText(activeIndex);
+}
+
+/* ---------- undo / redo ---------- */
+
+function snap() {
+  return JSON.stringify({ elements: script.elements, activeIndex });
+}
+
+// Coalesce rapid edits into one history entry.
+function checkpoint() {
+  clearTimeout(histTimer);
+  histTimer = setTimeout(() => history.push(snap()), 450);
+}
+
+// Commit any pending (debounced) checkpoint immediately, so an undo issued
+// mid-edit still steps back from the latest state.
+function flushCheckpoint() {
+  if (!histTimer) return;
+  clearTimeout(histTimer);
+  histTimer = null;
+  history.push(snap());
+}
+
+function applyState(json) {
+  const state = JSON.parse(json);
+  applying = true;
+  script.elements = state.elements;
+  activeIndex = Math.max(0, Math.min(state.activeIndex, script.elements.length - 1));
+  clearTimeout(histTimer);
+  render();
+  const end = ta.value.length;
+  ta.setSelectionRange(end, end);
+  script.updatedAt = Date.now();
+  persistCb();
+  emitUpdate();
+  notify();
+  applying = false;
+}
+
+export function undo() {
+  flushCheckpoint();
+  const json = history.undo();
+  if (json != null) applyState(json);
+}
+
+export function redo() {
+  const json = history.redo();
+  if (json != null) applyState(json);
+}
+
+export function canUndo() {
+  return history.canUndo();
+}
+
+export function canRedo() {
+  return history.canRedo();
 }
 
 // Normalize a block's text and record usage stats once per distinct text.
