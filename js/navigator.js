@@ -3,7 +3,7 @@
 // practical way to move around a long script by thumb.
 
 import * as editor from './editor.js';
-import { estimatePages } from './model.js';
+import { estimatePages, isActStart } from './model.js';
 
 let sheet;
 
@@ -30,9 +30,54 @@ function build() {
     </div>
     <div class="sheet-body">
       <p id="outlineStats" class="outline-stats"></p>
+      <div id="actStructure"></div>
       <ol id="sceneList" class="scene-list"></ol>
     </div>`;
   sheet.querySelector('#closeOutline').addEventListener('click', close);
+}
+
+// Split the script into act-length segments at each COLD OPEN / ACT / TEASER
+// marker, for the page-window check (NBC one-hour drama: acts ~9–12 pp).
+function actSegments(els) {
+  const starts = [];
+  els.forEach((el, i) => {
+    if (isActStart(el)) starts.push(i);
+  });
+  return starts.map((from, s) => {
+    const to = s + 1 < starts.length ? starts[s + 1] : els.length;
+    const label = (els[from].text || 'ACT').toUpperCase();
+    return { label, pages: estimatePages(els.slice(from, to)) };
+  });
+}
+
+function renderActs(els, pages) {
+  const wrap = sheet.querySelector('#actStructure');
+  const segs = actSegments(els);
+  if (segs.length === 0) {
+    wrap.replaceChildren();
+    return;
+  }
+  const rows = segs.map((seg) => {
+    const isAct = seg.label.startsWith('ACT');
+    const warn = isAct && (seg.pages < 9 || seg.pages > 12);
+    const li = document.createElement('li');
+    li.className = 'act-row' + (warn ? ' warn' : '');
+    li.textContent = `${seg.label} — ${seg.pages.toFixed(1)} pp` + (warn ? '  ⚠ off 9–12' : '');
+    return li;
+  });
+  const total = document.createElement('li');
+  const hourWarn = pages < 45 || pages > 63;
+  total.className = 'act-row act-total' + (hourWarn ? ' warn' : '');
+  total.textContent =
+    `TOTAL — ${pages.toFixed(1)} pp` + (hourWarn ? '  ⚠ off 45–63 (hour drama)' : '');
+
+  const h = document.createElement('h3');
+  h.className = 'profile-sub';
+  h.textContent = 'Act structure';
+  const ul = document.createElement('ul');
+  ul.className = 'act-list';
+  ul.replaceChildren(...rows, total);
+  wrap.replaceChildren(h, ul);
 }
 
 function render() {
@@ -47,6 +92,8 @@ function render() {
   sheet.querySelector('#outlineStats').textContent =
     `${scenes.length} scene${scenes.length === 1 ? '' : 's'} · ` +
     `${Math.max(1, Math.ceil(pages))} pp · ~${runtime} min`;
+
+  renderActs(els, pages);
 
   const listEl = sheet.querySelector('#sceneList');
   if (scenes.length === 0) {

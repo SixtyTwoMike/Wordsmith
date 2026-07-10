@@ -514,6 +514,45 @@ test('V.O./O.S. cue, scene notation, and parenthetical presets', async ({ page }
   expect(paren.text).toBe('beat');
 });
 
+test('act markers: auto-detect, outline act-length check, Fountain centering', async ({ page }) => {
+  await startScene(page); // scene INT. DINER - NIGHT, on empty action
+  await page.keyboard.type('COLD OPEN'); // action auto-detects to marker
+  let active = (await getBlocks(page)).find((b) => b.active);
+  expect(active.type).toBe('marker');
+  expect(active.text).toBe('COLD OPEN');
+
+  await page.keyboard.press('Enter'); // marker -> scene
+  expect((await getBlocks(page)).at(-1).type).toBe('scene');
+  await page.keyboard.type('INT. ROOM - DAY');
+  await page.keyboard.press('Enter'); // -> action
+  await page.keyboard.type('ACT ONE'); // -> marker
+  await page.keyboard.press('Enter'); // -> scene
+  await page.keyboard.type('EXT. STREET - DAY');
+
+  // Outline shows an act-structure breakdown with a short-act warning.
+  await page.locator('#openOutline').click();
+  const rows = page.locator('#actStructure .act-row');
+  await expect(rows).toHaveCount(3); // COLD OPEN, ACT ONE, TOTAL
+  await expect(page.locator('#actStructure')).toContainText('COLD OPEN');
+  await expect(page.locator('#actStructure')).toContainText('ACT ONE');
+  await expect(page.locator('#actStructure')).toContainText('TOTAL');
+  await expect(page.locator('#actStructure .act-row.warn').first()).toContainText('⚠');
+  await page.locator('#closeOutline').click();
+
+  // Fountain centers markers with the > TEXT < form.
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    (async () => {
+      await page.locator('#openScripts').click();
+      await page.locator('#exportBtn').click();
+      await page.locator('.export-fmt[data-fmt="fountain"]').click();
+    })(),
+  ]);
+  const text = fs.readFileSync(await download.path(), 'utf8');
+  expect(text).toContain('> COLD OPEN <');
+  expect(text).toContain('> ACT ONE <');
+});
+
 test('migrates v1 single-script storage to the v2 catalog', async ({ page }) => {
   // Seed legacy v1 keys before any app code runs (addInitScript executes
   // ahead of the page's own scripts), so migration sees them on first load.

@@ -69,6 +69,8 @@ export function toFountain(script) {
       if (text) paras.push(up(text));
     } else if (el.type === 'transition') {
       if (text) paras.push('> ' + up(text)); // force, so "FADE OUT." isn't read as action
+    } else if (el.type === 'marker') {
+      if (text) paras.push('> ' + up(text) + ' <'); // Fountain centered text
     } else if (el.type === 'paren') {
       if (text) pushAction('(' + stripParens(text) + ')'); // orphaned parenthetical
     } else {
@@ -119,7 +121,7 @@ function exportFountain() {
 function displayText(el) {
   const t = (el.text || '').trim();
   if (el.type === 'paren') return t ? '(' + stripParens(t) + ')' : '';
-  if (el.type === 'scene' || el.type === 'character' || el.type === 'transition') return up(t);
+  if (['scene', 'character', 'transition', 'marker'].includes(el.type)) return up(t);
   return t;
 }
 
@@ -151,6 +153,7 @@ export function toPrintHTML(script) {
   .paren { margin-left: 3.1in; margin-bottom: 0; }
   .dialogue { margin-left: 2.5in; margin-right: 1.5in; }
   .transition { text-transform: uppercase; text-align: right; }
+  .marker { text-transform: uppercase; text-align: center; font-weight: bold; text-decoration: underline; }
   @media screen { body { background: #fff; padding: 1in; max-width: 8.5in; margin: 0 auto; } }
 </style></head><body>
 <section class="title-page"><h1>${escHtml(title)}</h1></section>
@@ -193,8 +196,10 @@ function docxParagraph(el) {
   else if (el.type === 'dialogue')
     ind = `<w:ind w:left="${TWIP.dialogueLeft}" w:right="${TWIP.dialogueRight}"/>`;
   else if (el.type === 'transition') ind = `<w:jc w:val="right"/>`;
-  const bold = el.type === 'scene' ? '<w:b/>' : '';
-  const rPr = `<w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/><w:sz w:val="24"/>${bold}</w:rPr>`;
+  else if (el.type === 'marker') ind = `<w:jc w:val="center"/>`;
+  const bold = el.type === 'scene' || el.type === 'marker' ? '<w:b/>' : '';
+  const underline = el.type === 'marker' ? '<w:u w:val="single"/>' : '';
+  const rPr = `<w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/><w:sz w:val="24"/>${bold}${underline}</w:rPr>`;
   return `<w:p>${ind ? `<w:pPr>${ind}</w:pPr>` : ''}<w:r>${rPr}<w:t xml:space="preserve">${escXml(text)}</w:t></w:r></w:p>`;
 }
 

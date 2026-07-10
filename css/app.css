@@ -110,6 +110,7 @@ body {
 .el-dialogue { margin: 0 8% 0 12%; }
 .el-paren { margin: 0 20% 0 17%; color: #4a4a4a; }
 .el-transition { text-transform: uppercase; text-align: right; margin-top: 1em; }
+.el-marker { text-transform: uppercase; text-align: center; font-weight: 700; text-decoration: underline; margin: 1.4em 0 0.6em; letter-spacing: 0.05em; }
 
 #blockInput {
   display: block;
@@ -495,6 +496,22 @@ body {
 .scene-jump:active { background: #2f3644; }
 
 .scene-empty { color: var(--dim); font-size: 14px; }
+
+.act-list { list-style: none; margin: 0 0 4px; padding: 0; }
+
+.act-row {
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  font-size: 13px;
+  color: var(--text);
+  padding: 7px 12px;
+  background: var(--chip-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  margin-bottom: 5px;
+}
+
+.act-row.act-total { font-weight: 700; }
+.act-row.warn { color: #f0b45e; border-color: rgba(240, 180, 94, 0.45); }
 
 /* ---------- character profile (Personae Dramatis) ---------- */
 .profile-name {

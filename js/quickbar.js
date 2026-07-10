@@ -134,6 +134,8 @@ function sceneSuffix(s) {
 // Professional formatting (Phase 5), informed by TV-drama conventions.
 const SCENE_NOTES = ['[FLASHBACK]', '[ARCHIVAL]', '[SURVEILLANCE]'];
 const PAREN_PRESETS = ['beat', 'pause', 'whispers', "cont'd"];
+// TV act structure (Phase 7): centered structural markers.
+const MARKERS = ['COLD OPEN', 'ACT ONE', 'END OF ACT', 'TAG'];
 const CUE_RE = /\s*\((?:V\.O\.|O\.S\.|CONT'D|CONT’D)\)\s*$/i;
 
 // Append a voice cue to a character name, replacing any existing one so
@@ -183,14 +185,17 @@ function buildChips(type) {
       return transitionChips(6).map((t) =>
         chip(t, () => editor.updateActiveText(() => t))
       );
+    case 'marker':
+      return MARKERS.map((m) => chip(m, () => editor.updateActiveText(() => m)));
     default: // action, paren
       return [
-        ...characterChips(6).map((n) =>
+        ...characterChips(5).map((n) =>
           chip(n, () => editor.insertCharacterWithDialogue(n), 'chip-char')
         ),
         chip('INT.', () => editor.newBlock('scene', 'INT. ')),
         chip('EXT.', () => editor.newBlock('scene', 'EXT. ')),
         ...transitionChips(2).map((t) => chip(t, () => editor.insertTransitionThenScene(t))),
+        ...MARKERS.map((m) => chip(m, () => editor.newBlock('marker', m))),
       ];
   }
 }
