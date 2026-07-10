@@ -1,18 +1,19 @@
 #!/usr/bin/env bash
 # One-time bootstrap for a fresh Lightsail instance to serve Wordsmith.
 # Installs Caddy (automatic HTTPS), creates the web root, and wires in the
-# Caddyfile for your domain. Re-runnable (idempotent-ish).
+# Caddyfile for your domain. Works on Amazon Linux (dnf/yum) and
+# Debian/Ubuntu (apt). Re-runnable.
 #
-# Usage (on the instance, from the repo's deploy/ dir or with the file copied over):
-#   sudo DEPLOY_DOMAIN=wordsmith.example.com DEPLOY_USER=ubuntu bash setup-server.sh
+# Usage (on the instance, with deploy/ copied over):
+#   sudo DEPLOY_DOMAIN=wordsmith.example.com DEPLOY_USER=ec2-user bash setup-server.sh
 #
 # DEPLOY_DOMAIN  (required) the hostname you pointed at this instance
-# DEPLOY_USER    (optional) the SSH user the GitHub Action rsyncs as (default: ubuntu)
+# DEPLOY_USER    (optional) the SSH user the Action rsyncs as
+#                (default: ec2-user on Amazon Linux, else ubuntu)
 
 set -euo pipefail
 
 DEPLOY_DOMAIN="${DEPLOY_DOMAIN:-}"
-DEPLOY_USER="${DEPLOY_USER:-ubuntu}"
 WEBROOT="/var/www/wordsmith"
 
 if [ -z "$DEPLOY_DOMAIN" ]; then
@@ -24,10 +25,15 @@ if [ "$(id -u)" != "0" ]; then
   exit 1
 fi
 
+# Default the deploy user to whichever cloud-default account exists.
+if [ -z "${DEPLOY_USER:-}" ]; then
+  if id ec2-user >/dev/null 2>&1; then DEPLOY_USER=ec2-user; else DEPLOY_USER=ubuntu; fi
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-echo "==> Installing Caddy"
-if command -v apt-get >/dev/null 2>&1; then
+install_caddy_apt() {
+  echo "==> Installing Caddy from the official apt repo"
   apt-get update -y
   apt-get install -y debian-keyring debian-archive-keyring apt-transport-https curl gnupg
   curl -1sLf 'https://dl.cloudsmith.io/public/caddy/stable/gpg.key' \
@@ -36,18 +42,59 @@ if command -v apt-get >/dev/null 2>&1; then
     > /etc/apt/sources.list.d/caddy-stable.list
   apt-get update -y
   apt-get install -y caddy
-elif command -v dnf >/dev/null 2>&1; then
-  dnf install -y 'dnf-command(copr)'
-  dnf copr enable -y @caddy/caddy
-  dnf install -y caddy
-elif command -v yum >/dev/null 2>&1; then
-  yum install -y yum-plugin-copr
-  yum copr enable -y @caddy/caddy
-  yum install -y caddy
+}
+
+# Universal path (Amazon Linux, RHEL, anything): official static binary +
+# a caddy system user + a systemd unit. Avoids distro repo/COPR fragility.
+install_caddy_binary() {
+  echo "==> Installing Caddy from the official static binary"
+  command -v curl >/dev/null 2>&1 || { (dnf install -y curl || yum install -y curl); }
+  case "$(uname -m)" in
+    x86_64|amd64) arch=amd64 ;;
+    aarch64|arm64) arch=arm64 ;;
+    armv7l) arch=armv7 ;;
+    *) echo "ERROR: unsupported arch $(uname -m)" >&2; exit 1 ;;
+  esac
+  curl -fsSL "https://caddyserver.com/api/download?os=linux&arch=${arch}" -o /usr/bin/caddy
+  chmod +x /usr/bin/caddy
+
+  echo "==> Creating caddy system user"
+  getent group caddy >/dev/null || groupadd --system caddy
+  id caddy >/dev/null 2>&1 || useradd --system --gid caddy \
+    --create-home --home-dir /var/lib/caddy \
+    --shell /usr/sbin/nologin caddy
+
+  echo "==> Installing systemd unit"
+  cat > /etc/systemd/system/caddy.service <<'UNIT'
+[Unit]
+Description=Caddy
+Documentation=https://caddyserver.com/docs/
+After=network.target network-online.target
+Requires=network-online.target
+
+[Service]
+Type=notify
+User=caddy
+Group=caddy
+ExecStart=/usr/bin/caddy run --environ --config /etc/caddy/Caddyfile
+ExecReload=/usr/bin/caddy reload --config /etc/caddy/Caddyfile --force
+TimeoutStopSec=5s
+LimitNOFILE=1048576
+PrivateTmp=true
+ProtectSystem=full
+AmbientCapabilities=CAP_NET_BIND_SERVICE
+[Install]
+WantedBy=multi-user.target
+UNIT
+}
+
+echo "==> Installing Caddy"
+if command -v apt-get >/dev/null 2>&1; then
+  install_caddy_apt
 else
-  echo "ERROR: no supported package manager (apt/dnf/yum) found." >&2
-  exit 1
+  install_caddy_binary
 fi
+mkdir -p /etc/caddy
 
 echo "==> Creating web root $WEBROOT (owned by $DEPLOY_USER, world-readable)"
 mkdir -p "$WEBROOT"
@@ -77,7 +124,8 @@ systemctl enable caddy
 systemctl restart caddy
 
 echo
-echo "Done. Caddy is serving https://$DEPLOY_DOMAIN once:"
+echo "Done. Caddy will serve https://$DEPLOY_DOMAIN once:"
 echo "  1. DNS for $DEPLOY_DOMAIN points at this instance's public IP, and"
 echo "  2. the Lightsail firewall allows TCP 80 and 443."
 echo "Caddy fetches the TLS certificate automatically on first request."
+echo "Deploy user (for the GitHub Action): $DEPLOY_USER"

@@ -11,9 +11,13 @@ I can't do these for you). After that, deploys are hands-off.
 ---
 
 ## 0. Prerequisites
-- A Lightsail **instance** (Ubuntu recommended) with a **static IP** attached
+- A Lightsail **instance** with a **static IP** attached
   (Lightsail → your instance → Networking → Create static IP).
 - One of your domains available for a subdomain, e.g. `wordsmith.example.com`.
+
+> This guide uses **Amazon Linux** conventions — the SSH user is **`ec2-user`**.
+> On Ubuntu instances the user is `ubuntu`; swap it in the commands below and
+> in the `LIGHTSAIL_USER` secret. The bootstrap script handles both.
 
 ## 1. DNS — point a subdomain at the instance
 In your DNS provider, add an **A record**:
@@ -42,7 +46,7 @@ ssh-keygen -t ed25519 -f wordsmith_deploy -N ""    # creates wordsmith_deploy(.p
 Add the **public** half to the instance so the Action can log in:
 
 ```sh
-ssh ubuntu@<static-ip> 'cat >> ~/.ssh/authorized_keys' < wordsmith_deploy.pub
+ssh ec2-user@<static-ip> 'cat >> ~/.ssh/authorized_keys' < wordsmith_deploy.pub
 ```
 
 Keep `wordsmith_deploy` (the private key) for step 5. Use this dedicated key,
@@ -52,10 +56,10 @@ not your personal one.
 Copy the setup files up and run the bootstrap:
 
 ```sh
-scp deploy/setup-server.sh deploy/Caddyfile ubuntu@<static-ip>:/tmp/
-ssh ubuntu@<static-ip>
+scp deploy/setup-server.sh deploy/Caddyfile ec2-user@<static-ip>:/tmp/
+ssh ec2-user@<static-ip>
 cd /tmp
-sudo DEPLOY_DOMAIN=wordsmith.example.com DEPLOY_USER=ubuntu bash setup-server.sh
+sudo DEPLOY_DOMAIN=wordsmith.example.com DEPLOY_USER=ec2-user bash setup-server.sh
 ```
 
 This installs Caddy, creates `/var/www/wordsmith` (writable by `ubuntu`,
@@ -69,7 +73,7 @@ In the repo: **Settings → Secrets and variables → Actions**.
 | Name | Value |
 |---|---|
 | `LIGHTSAIL_HOST` | your instance's static IP (or hostname) |
-| `LIGHTSAIL_USER` | `ubuntu` (or your deploy user) |
+| `LIGHTSAIL_USER` | `ec2-user` (Amazon Linux) or `ubuntu` |
 | `LIGHTSAIL_SSH_KEY` | the full contents of the private `wordsmith_deploy` file |
 
 **Variable** (Variables tab):
