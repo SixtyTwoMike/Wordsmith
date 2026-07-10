@@ -1,0 +1,86 @@
+name: Deploy to Lightsail
+
+# Deploys the static PWA to an AWS Lightsail instance over SSH (rsync).
+# Caddy on the instance serves the files and provisions HTTPS automatically.
+# See deploy/README.md for the one-time server + secrets setup.
+
+on:
+  push:
+    branches: [claude/iphone-screenwriting-app-moihhx]
+    paths:
+      - 'index.html'
+      - 'sw.js'
+      - 'manifest.webmanifest'
+      - 'css/**'
+      - 'js/**'
+      - 'icons/**'
+      - 'deploy/**'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-lightsail
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify required secrets/vars are present
+        env:
+          SSH_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          SSH_USER: ${{ secrets.LIGHTSAIL_USER }}
+          SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          DEPLOY_DOMAIN: ${{ vars.DEPLOY_DOMAIN }}
+        run: |
+          missing=0
+          for name in SSH_HOST SSH_USER SSH_KEY DEPLOY_DOMAIN; do
+            if [ -z "${!name}" ]; then
+              echo "::error::Missing ${name}. See deploy/README.md."
+              missing=1
+            fi
+          done
+          [ "$missing" = "0" ] || exit 1
+
+      - name: Set up SSH
+        env:
+          SSH_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          SSH_KEY: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          # Pin the host key to avoid MITM (TOFU on first deploy).
+          ssh-keyscan -H "$SSH_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Stage runtime assets
+        run: |
+          rm -rf staging
+          mkdir -p staging
+          cp -r index.html sw.js manifest.webmanifest css js icons staging/
+
+      - name: Rsync static assets to the instance
+        env:
+          SSH_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          SSH_USER: ${{ secrets.LIGHTSAIL_USER }}
+        run: |
+          # Trailing slash on staging/ + --delete = the web root mirrors
+          # exactly these assets (old files are pruned cleanly).
+          rsync -az --delete \
+            -e "ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes" \
+            staging/ "$SSH_USER@$SSH_HOST:/var/www/wordsmith/"
+
+      - name: Reload Caddy (best effort)
+        env:
+          SSH_HOST: ${{ secrets.LIGHTSAIL_HOST }}
+          SSH_USER: ${{ secrets.LIGHTSAIL_USER }}
+        run: |
+          ssh -i ~/.ssh/deploy_key -o IdentitiesOnly=yes "$SSH_USER@$SSH_HOST" \
+            'sudo systemctl reload caddy || true'
+
+      - name: Clean up key
+        if: always()
+        run: rm -f ~/.ssh/deploy_key
