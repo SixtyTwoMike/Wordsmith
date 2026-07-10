@@ -434,6 +434,58 @@ test('a character and its (V.O.) form share one profile', async ({ page }) => {
   await expect(page.locator('#profileSheet .profile-stats')).toContainText('2 appearances');
 });
 
+async function buildDinerScene(page) {
+  await startScene(page); // scene INT. DINER - NIGHT, on empty action
+  await page.keyboard.type('Sarah wipes the counter.');
+  await page.keyboard.press('Enter');
+  await speak(page, 'Sarah', 'We open at six.');
+  await page.locator('#title').fill('Night Shift');
+}
+
+async function openExport(page) {
+  await page.locator('#openScripts').click();
+  await page.locator('#exportBtn').click();
+}
+
+test('exports a valid .docx (pure-JS ZIP) with the script text', async ({ page }) => {
+  await buildDinerScene(page);
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    (async () => {
+      await openExport(page);
+      await page.locator('.export-fmt[data-fmt="docx"]').click();
+    })(),
+  ]);
+
+  expect(download.suggestedFilename()).toBe('night-shift.docx');
+  const buf = fs.readFileSync(await download.path());
+  // ZIP magic bytes.
+  expect(buf[0]).toBe(0x50);
+  expect(buf[1]).toBe(0x4b);
+  // Store method = uncompressed, so the XML parts and text appear verbatim.
+  const asText = buf.toString('latin1');
+  expect(asText).toContain('word/document.xml');
+  expect(asText).toContain('[Content_Types].xml');
+  expect(asText).toContain('INT. DINER - NIGHT');
+  expect(asText).toContain('We open at six.');
+  expect(asText).toContain('w:document');
+});
+
+test('PDF export builds a print document with formatted screenplay', async ({ page }) => {
+  await buildDinerScene(page);
+  await openExport(page);
+  await page.locator('.export-fmt[data-fmt="pdf"]').click();
+
+  // The print iframe holds the full formatted HTML in its srcdoc.
+  const html = await page
+    .locator('#wsPrintFrame')
+    .getAttribute('srcdoc', { timeout: 5000 });
+  expect(html).toContain('INT. DINER - NIGHT');
+  expect(html).toContain('class="el scene"');
+  expect(html).toContain('class="el character"');
+  expect(html).toContain('We open at six.');
+});
+
 test('V.O./O.S. cue, scene notation, and parenthetical presets', async ({ page }) => {
   await startScene(page); // scene INT. DINER - NIGHT, on empty action
 
