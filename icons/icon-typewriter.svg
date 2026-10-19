@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <rect width="512" height="512" fill="#eadcc0"/>
+  <circle cx="256" cy="262" r="176" fill="#8a6d4b"/>
+  <circle cx="256" cy="250" r="168" fill="#2b2420"/>
+  <circle cx="256" cy="250" r="146" fill="none" stroke="#eadcc0" stroke-opacity="0.25" stroke-width="4"/>
+  <text x="256" y="330" font-family="'Courier New', Courier, monospace" font-size="230" font-weight="bold" fill="#eadcc0" text-anchor="middle">W</text>
+</svg>

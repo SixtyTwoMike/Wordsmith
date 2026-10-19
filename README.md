@@ -55,8 +55,12 @@ to that character's next line. Prefer full control? Switch the quick bar to
   every export
 - **Backup & restore** — one JSON file holding every script with its learned
   chips and character profiles; restoring merges and never overwrites
-- **Liquid Glass look** — floating translucent bars and sheets, following the
-  system light/dark setting
+- **Liquid Glass look** — floating translucent bars and sheets
+- **Themes** — Auto (follows the system light/dark setting), Paper, Night,
+  Sepia, Midnight and High contrast (solid surfaces, no translucency)
+- **Home Screen app** — install steps in Settings, and a choice of five app
+  icons (Classic, Paper, Glass, Midnight, Typewriter) picked before adding
+  to the Home Screen
 - Auto-saves locally (localStorage); no account, no server
 - Installable PWA, works fully offline
 
@@ -88,7 +92,7 @@ Share → Add to Home Screen for the standalone app experience.
 
 ```sh
 npm test               # Playwright e2e suite at iPhone viewport (390x844)
-npm run icons          # regenerate PNG icons from icons/icon.svg
+npm run icons          # regenerate PNG icons from the icons/*.svg designs
 ```
 
 Plain ES modules, no build step, no runtime dependencies. The only dev
@@ -110,6 +114,7 @@ dependency is `@playwright/test`.
 - `js/layout.js` — screenplay line layout shared by the PDF and snippets
 - `js/pdf.js` — zero-dependency PDF writer and paginator
 - `js/snippet.js` — Scene Snippet image, alt text and sharing
-- `js/settings.js` — learned/manual toggle and set-list editor
+- `js/settings.js` — theme, app icon and install help; learned/manual toggle and set-list editor
+- `js/prefs.js` — app-wide preferences (theme, icon, reviewer name)
 - `js/store.js` — debounced localStorage autosave + v1→v2 migration
 - `sw.js`, `manifest.webmanifest` — offline app shell + install metadata

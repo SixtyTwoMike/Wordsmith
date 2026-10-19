@@ -1,7 +1,9 @@
-// Settings sheet: choose between learned suggestions and a manual set
-// list, and edit the manual lists (add / remove / reorder).
+// Settings sheet: app appearance (theme, Home Screen icon, install help),
+// then the quick bar — learned suggestions or a manual set list, with the
+// manual lists editable (add / remove / reorder).
 
 import { getSettings, saveSettings, learnedTop, DEFAULT_TRANSITIONS } from './suggest.js';
+import * as prefs from './prefs.js';
 
 const CATEGORIES = [
   ['characters', 'Characters'],
@@ -20,6 +22,7 @@ export function init(onChangeCb) {
 }
 
 function open() {
+  renderAppearance();
   renderMode();
   renderLists();
   sheet.hidden = false;
@@ -33,10 +36,21 @@ function close() {
 function build() {
   sheet.innerHTML = `
     <div class="sheet-head">
-      <h2>Quick Bar</h2>
+      <h2>Settings</h2>
       <button id="closeSettings" class="btn-done">Done</button>
     </div>
     <div class="sheet-body">
+      <section class="set-section">
+        <h3 class="profile-sub">Theme</h3>
+        <div id="themeGrid" class="theme-grid" role="group" aria-label="Theme"></div>
+      </section>
+      <section class="set-section">
+        <h3 class="profile-sub">Home Screen</h3>
+        <div id="installCard" class="install-card"></div>
+        <p class="hint" style="margin-top:12px">App icon — pick one before adding Wordsmith to your Home Screen.</p>
+        <div id="iconGrid" class="icon-grid" role="group" aria-label="App icon"></div>
+      </section>
+      <h3 class="profile-sub">Quick Bar</h3>
       <p class="hint">Suggestion chips can follow your recent usage, or stick to a set list you control.</p>
       <div class="seg" id="modeSeg">
         <button data-mode="learned">Learned from usage</button>
@@ -46,6 +60,50 @@ function build() {
     </div>`;
 
   sheet.querySelector('#closeSettings').addEventListener('click', close);
+
+  const themeGrid = sheet.querySelector('#themeGrid');
+  themeGrid.replaceChildren(
+    ...prefs.THEMES.map((t) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'theme-opt';
+      b.dataset.theme = t.id;
+      const sw = document.createElement('span');
+      sw.className = 'theme-swatch';
+      sw.style.background =
+        t.swatch.length > 1 ? `linear-gradient(135deg, ${t.swatch[0]} 50%, ${t.swatch[1]} 50%)` : t.swatch[0];
+      const dot = document.createElement('i');
+      dot.style.background = t.accent;
+      sw.appendChild(dot);
+      b.append(sw, t.label);
+      b.addEventListener('click', () => {
+        prefs.set('theme', t.id);
+        prefs.applyTheme();
+        renderAppearance();
+      });
+      return b;
+    })
+  );
+
+  const iconGrid = sheet.querySelector('#iconGrid');
+  iconGrid.replaceChildren(
+    ...prefs.ICONS.map((ic) => {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'icon-opt';
+      b.dataset.icon = ic.id;
+      const img = document.createElement('img');
+      img.src = `icons/${ic.file}-180.png`;
+      img.alt = '';
+      b.append(img, ic.label);
+      b.addEventListener('click', () => {
+        prefs.set('icon', ic.id);
+        prefs.applyIcon();
+        renderAppearance();
+      });
+      return b;
+    })
+  );
 
   sheet.querySelector('#modeSeg').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-mode]');
@@ -71,6 +129,22 @@ function prefillIfEmpty(settings) {
     if (m.transitions.length >= 8) break;
     if (!m.transitions.includes(d)) m.transitions.push(d);
   }
+}
+
+function renderAppearance() {
+  for (const b of sheet.querySelectorAll('.theme-opt')) {
+    b.setAttribute('aria-pressed', String(b.dataset.theme === prefs.get('theme')));
+  }
+  for (const b of sheet.querySelectorAll('.icon-opt')) {
+    b.setAttribute('aria-pressed', String(b.dataset.icon === prefs.get('icon')));
+  }
+  const card = sheet.querySelector('#installCard');
+  card.innerHTML = prefs.isInstalled()
+    ? '<b>Installed.</b> Wordsmith is running from your Home Screen. To switch icons you have to remove the app and add it again — and removing it also removes its scripts, so first use <b>Scripts → Back up all</b>, then <b>Restore</b> in the new copy.'
+    : '<b>Install Wordsmith as an app</b> — it opens full screen and works offline.' +
+      '<ol><li>Open this page in <b>Safari</b>.</li>' +
+      '<li>Tap the <b>Share</b> button (the square with an arrow).</li>' +
+      '<li>Choose <b>Add to Home Screen</b>, then <b>Add</b>.</li></ol>';
 }
 
 function renderMode() {

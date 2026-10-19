@@ -942,3 +942,50 @@ test('scene snippet: image, alt text, caption and share options', async ({ page,
   const png = fs.readFileSync(await download.path());
   expect(png.subarray(1, 4).toString()).toBe('PNG');
 });
+
+test('themes apply instantly and persist; Auto follows the system', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto('/');
+  const bg = () => page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(await bg()).toBe('rgb(19, 20, 24)'); // Auto + dark system
+
+  await page.locator('#openSettings').click();
+  await page.locator('.theme-opt[data-theme="sepia"]').click();
+  await expect(page.locator('.theme-opt[data-theme="sepia"]')).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => document.documentElement.dataset.theme)).toBe('sepia');
+  expect(await bg()).toBe('rgb(241, 231, 208)');
+  expect(await page.locator('meta[name="theme-color"]').first().getAttribute('content')).toBe('#f1e7d0');
+
+  // A forced light theme wins over the dark system setting, and survives reload.
+  await page.locator('.theme-opt[data-theme="paper"]').click();
+  await page.waitForTimeout(500);
+  await page.reload();
+  expect(await bg()).toBe('rgb(247, 245, 239)');
+
+  await page.locator('#openSettings').click();
+  await page.locator('.theme-opt[data-theme="midnight"]').click();
+  expect(await bg()).toBe('rgb(13, 20, 36)');
+  await page.locator('.theme-opt[data-theme="system"]').click();
+  expect(await page.evaluate(() => document.documentElement.hasAttribute('data-theme'))).toBe(false);
+  expect(await bg()).toBe('rgb(19, 20, 24)');
+});
+
+test('choosing an app icon points the Home Screen icon and manifest at it', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#openSettings').click();
+  await expect(page.locator('#installCard')).toContainText('Add to Home Screen');
+  await page.locator('.icon-opt[data-icon="glass"]').click();
+  await expect(page.locator('.icon-opt[data-icon="glass"]')).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.locator('link[rel="apple-touch-icon"]').getAttribute('href')).toBe('icons/icon-glass-180.png');
+  expect(await page.locator('link[rel="manifest"]').getAttribute('href')).toBe('manifest-glass.webmanifest');
+
+  const manifest = await (await page.request.get('/manifest-glass.webmanifest')).json();
+  expect(manifest.icons[0].src).toBe('icons/icon-glass-192.png');
+  for (const icon of manifest.icons) {
+    expect((await page.request.get('/' + icon.src)).status()).toBe(200);
+  }
+
+  await page.waitForTimeout(500);
+  await page.reload();
+  expect(await page.locator('link[rel="apple-touch-icon"]').getAttribute('href')).toBe('icons/icon-glass-180.png');
+});

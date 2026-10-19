@@ -83,6 +83,8 @@ export const FORMATS = {
 const THEMES = {
   paper: { bg: '#f7f5ef', ink: '#1c1c1c', dim: '#7a756b', rule: '#ddd8cc', accent: '#b86e12' },
   night: { bg: '#131418', ink: '#ece9e2', dim: '#8d929c', rule: '#2b2e36', accent: '#e0a458' },
+  sepia: { bg: '#f1e7d0', ink: '#3b2f22', dim: '#7a6650', rule: '#dccdaa', accent: '#9a5b1e' },
+  midnight: { bg: '#0d1424', ink: '#dbe6f5', dim: '#8a9bb5', rule: '#1f2c45', accent: '#8fd0ff' },
 };
 
 const MONO = '"Courier Prime", "Courier New", Courier, monospace';
@@ -195,7 +197,9 @@ function build() {
         </div>
         <div class="seg" role="group" aria-label="Look">
           <button class="snip-theme" data-theme="paper">Paper</button>
+          <button class="snip-theme" data-theme="sepia">Sepia</button>
           <button class="snip-theme" data-theme="night">Night</button>
+          <button class="snip-theme" data-theme="midnight">Midnight</button>
         </div>
       </div>
       <div class="snip-preview"><canvas id="snippetCanvas" aria-label="Snippet preview"></canvas></div>

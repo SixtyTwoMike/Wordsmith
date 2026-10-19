@@ -16,6 +16,10 @@ import * as exporter from './export.js';
 import * as characters from './characters.js';
 import * as profile from './profile.js';
 import * as snippet from './snippet.js';
+import * as prefs from './prefs.js';
+
+prefs.applyTheme();
+prefs.applyIcon();
 import { parseFountain } from './fountain.js';
 import { toBackup, parseBackup, sameContent, backupFilename } from './backup.js';
 import { createScript, characterStatName, sceneLocation } from './model.js';

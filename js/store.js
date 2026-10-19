@@ -9,6 +9,7 @@ const KEYS = {
   stats: 'wordsmith.stats.v1',
   settings: 'wordsmith.settings.v1',
   characters: 'wordsmith.characters.v1',
+  prefs: 'wordsmith.prefs.v1', // app-wide: theme, icon, reviewer name
 };
 
 export function load(kind, fallback) {

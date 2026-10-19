@@ -13,6 +13,13 @@
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="stylesheet" href="css/app.css">
+<script>
+  // Apply the saved theme before first paint (prefs.js keeps it in sync).
+  try {
+    var p = JSON.parse(localStorage.getItem('wordsmith.prefs.v1'));
+    if (p && p.theme && p.theme !== 'system') document.documentElement.dataset.theme = p.theme;
+  } catch (e) {}
+</script>
 </head>
 <body>
 <header id="topbar" class="glass">
