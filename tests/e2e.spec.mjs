@@ -487,7 +487,7 @@ test('PDF export builds a print document with formatted screenplay', async ({ pa
   });
   await buildDinerScene(page);
   await openExport(page);
-  await page.locator('.export-fmt[data-fmt="pdf"]').click();
+  await page.locator('.export-fmt[data-fmt="print"]').click();
 
   // The print iframe holds the full formatted HTML in its srcdoc.
   const html = await page
@@ -718,7 +718,7 @@ test('title page fields persist and appear in every export', async ({ page }) =>
   await page.reload();
   await openExport(page);
   await expect(page.locator('#titlePageFields [data-field="author"]')).toHaveValue('Jo Writer');
-  await page.locator('.export-fmt[data-fmt="pdf"]').click();
+  await page.locator('.export-fmt[data-fmt="print"]').click();
   const html = await page.locator('#wsPrintFrame').getAttribute('srcdoc');
   expect(html).toContain('<p class="tp-author">Jo Writer</p>');
   expect(html).toContain('<p class="tp-credit">Written by</p>');
@@ -843,4 +843,102 @@ test('when framed and the keyboard is undetectable, the quick bar docks at the t
   await expect(app.locator('body')).toHaveClass(/qb-top/);
   const bar = await app.locator('#quickbar').boundingBox();
   expect(bar.y).toBeLessThan(200);
+});
+
+test('PDF export writes a real PDF file with a title page and screenplay pages', async ({ page }) => {
+  await buildDinerScene(page);
+  await openExport(page);
+  await page.locator('#titlePageFields [data-field="author"]').fill('Jo Writer');
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('.export-fmt[data-fmt="pdf"]').click(),
+  ]);
+  expect(download.suggestedFilename()).toBe('night-shift.pdf');
+  const pdf = fs.readFileSync(await download.path(), 'latin1');
+  expect(pdf.startsWith('%PDF-1.4')).toBe(true);
+  expect(pdf.trimEnd().endsWith('%%EOF')).toBe(true);
+  expect(pdf).toContain('/Count 2'); // title page + one script page
+  expect(pdf).toContain('(NIGHT SHIFT) Tj');
+  expect(pdf).toContain('(Jo Writer) Tj');
+  expect(pdf).toContain('(INT. DINER - NIGHT) Tj');
+  expect(pdf).toContain('(We open at six.) Tj');
+  // The cross-reference table points at each object.
+  const xref = Number(pdf.match(/startxref\n(\d+)/)[1]);
+  expect(pdf.slice(xref, xref + 4)).toBe('xref');
+  const first = Number(pdf.slice(xref).split('\n')[3].slice(0, 10));
+  expect(pdf.slice(first, first + 7)).toBe('1 0 obj');
+});
+
+test('PDF pagination keeps cues with dialogue and splits long speeches', async ({ page }) => {
+  await page.goto('/');
+  const result = await page.evaluate(async () => {
+    const { paginate, LINES_PER_PAGE } = await import('/js/pdf.js');
+    const { layoutLines } = await import('/js/layout.js');
+    const els = [{ type: 'scene', text: 'INT. DINER - NIGHT' }];
+    for (let i = 0; i < 5; i++) {
+      els.push({ type: 'character', text: 'SARAH' });
+      els.push({ type: 'dialogue', text: ('Speech ' + i + ' goes on. ').repeat(40) });
+    }
+    const pages = paginate(layoutLines(els));
+    return {
+      max: Math.max(...pages.map((p) => p.length)),
+      limit: LINES_PER_PAGE,
+      tails: pages.map((p) => p.at(-1).text),
+      heads: pages.slice(1).map((p) => p[0].text),
+      anyBlankTop: pages.some((p) => !p[0].text),
+      cueAtFoot: pages.some((p) => p.at(-1).type === 'character'),
+    };
+  });
+  expect(result.max).toBeLessThanOrEqual(result.limit);
+  expect(result.tails[0]).toBe('(MORE)');
+  expect(result.heads[0]).toBe("SARAH (CONT'D)");
+  expect(result.anyBlankTop).toBe(false);
+  expect(result.cueAtFoot).toBe(false);
+});
+
+test('scene snippet: image, alt text, caption and share options', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await buildDinerScene(page);
+  await page.locator('#openOutline').click();
+  await page.locator('.scene-share').first().click();
+
+  const sheet = page.locator('#snippetSheet');
+  await expect(sheet).toBeVisible();
+  const canvas = page.locator('#snippetCanvas');
+  expect(await canvas.evaluate((c) => [c.width, c.height])).toEqual([1080, 1350]);
+
+  const alt = await page.locator('#snippetAlt').inputValue();
+  expect(alt).toContain('Screenplay scene 1 from “Night Shift”.');
+  expect(alt).toContain('INT. DINER - NIGHT');
+  expect(alt).toContain('SARAH: We open at six.');
+  await expect(page.locator('#altCount')).toHaveText(`${alt.length} characters`);
+
+  await page.locator('#copyAlt').click();
+  await expect(page.locator('#snippetStatus')).toHaveText('Alt text copied.');
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(alt);
+
+  const caption = await page.locator('#snippetCaption').inputValue();
+  expect(caption).toContain('INT. DINER - NIGHT — from “Night Shift”');
+  const bsky = await page.locator('#shareBluesky').getAttribute('href');
+  expect(bsky).toBe('https://bsky.app/intent/compose?text=' + encodeURIComponent(caption));
+
+  // Formats and themes redraw without losing an edited caption.
+  await page.locator('#snippetCaption').fill('My scene');
+  await page.locator('.snip-fmt[data-fmt="story"]').click();
+  await page.locator('.snip-theme[data-theme="night"]').click();
+  expect(await canvas.evaluate((c) => [c.width, c.height])).toEqual([1080, 1920]);
+  expect(await canvas.evaluate((c) => Array.from(c.getContext('2d').getImageData(5, 5, 1, 1).data.slice(0, 3)))).toEqual([19, 20, 24]);
+  await expect(page.locator('#snippetCaption')).toHaveValue('My scene');
+
+  // Page scope relabels the excerpt.
+  await page.locator('.snip-scope[data-scope="page"]').click();
+  expect(await page.locator('#snippetAlt').inputValue()).toContain('Screenplay page 1');
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('#saveSnippet').click(),
+  ]);
+  expect(download.suggestedFilename()).toBe('night-shift-page-1.png');
+  const png = fs.readFileSync(await download.path());
+  expect(png.subarray(1, 4).toString()).toBe('PNG');
 });

@@ -4,6 +4,7 @@
 
 import * as editor from './editor.js';
 import { estimatePages, isActStart } from './model.js';
+import * as snippet from './snippet.js';
 
 let sheet;
 
@@ -114,7 +115,18 @@ function render() {
         editor.activate(s.i);
         close();
       });
-      li.appendChild(btn);
+      // Share this scene as an image (Scene Snippet).
+      const share = document.createElement('button');
+      share.type = 'button';
+      share.className = 'scene-share';
+      share.textContent = '⇪';
+      share.setAttribute('aria-label', `Share snippet of ${s.text || 'scene'}`);
+      share.addEventListener('click', () => {
+        close();
+        snippet.open(s.i);
+      });
+      li.className = 'scene-row';
+      li.append(btn, share);
       return li;
     })
   );

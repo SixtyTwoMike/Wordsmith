@@ -265,7 +265,7 @@ body.qb-top #page { padding-top: 112px; }
 .qb-fixed { display: flex; gap: 4px; }
 
 /* ---------- sheets (settings + scripts + outline + export + profile) ---------- */
-#settingsSheet, #scriptsSheet, #outlineSheet, #exportSheet, #profileSheet {
+#settingsSheet, #scriptsSheet, #outlineSheet, #exportSheet, #profileSheet, #snippetSheet {
   position: fixed;
   inset: calc(env(safe-area-inset-top) + 10px) 0 0;
   z-index: 30;
@@ -676,3 +676,40 @@ body.qb-top #page { padding-top: 112px; }
 /* ---------- import & backup ---------- */
 .btn-row { display: flex; gap: 8px; }
 .btn-row .btn-secondary { flex: 1; margin-bottom: 10px; padding: 12px 6px; font-size: 14px; }
+
+/* ---------- scene snippet ---------- */
+.scene-row { display: flex; gap: 8px; align-items: stretch; }
+.scene-row .scene-jump { flex: 1; min-width: 0; }
+
+.scene-share {
+  flex: 0 0 auto;
+  width: 46px;
+  border: 1px solid var(--border);
+  background: var(--chip-bg);
+  color: var(--accent);
+  border-radius: 10px;
+  font-size: 18px;
+}
+
+.scene-share:active { background: var(--press); }
+
+.snip-controls { display: flex; flex-direction: column; gap: 8px; margin-bottom: 14px; }
+
+.snip-preview {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.snip-preview canvas {
+  max-width: 100%;
+  max-height: 56vh;
+  height: auto;
+  border-radius: 14px;
+  border: 1px solid var(--border);
+  box-shadow: var(--glass-shadow);
+}
+
+.snip-count { font-style: normal; font-weight: 500; letter-spacing: 0; text-transform: none; margin-left: 6px; }
+
+a.btn-secondary { text-align: center; text-decoration: none; }

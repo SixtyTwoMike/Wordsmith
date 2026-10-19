@@ -15,6 +15,7 @@ import * as outline from './navigator.js';
 import * as exporter from './export.js';
 import * as characters from './characters.js';
 import * as profile from './profile.js';
+import * as snippet from './snippet.js';
 import { parseFountain } from './fountain.js';
 import { toBackup, parseBackup, sameContent, backupFilename } from './backup.js';
 import { createScript, characterStatName, sceneLocation } from './model.js';
@@ -42,6 +43,7 @@ settings.init(() => quickbar.refresh());
 outline.init();
 exporter.init(() => scripts.syncMeta(editor.getScript()));
 profile.init();
+snippet.init();
 
 // Live page count in the header (1 page ≈ 1 minute of screen time).
 const pageCountEl = document.getElementById('pageCount');
@@ -136,7 +138,7 @@ switcher.init({
   onRestore: restoreBackup,
   onBackup: () => {
     editor.commitActive();
-    exporter.download(
+    exporter.deliver(
       backupFilename(),
       JSON.stringify(toBackup(), null, 1),
       'application/json'

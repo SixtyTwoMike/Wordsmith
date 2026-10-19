@@ -5,6 +5,7 @@
 
 import * as editor from './editor.js';
 import { zipStore } from './zip.js';
+import { toPdfBlob } from './pdf.js';
 
 /* ---------- Fountain generation ---------- */
 
@@ -147,9 +148,30 @@ export function download(filename, data, mime) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
+// Hand a finished file to the user. On a phone, the share sheet (Save to
+// Files, Mail, AirDrop…) is more dependable than a download, especially
+// from a Home Screen web app; elsewhere, download it.
+export function deliver(filename, data, mime) {
+  const blob = data instanceof Blob ? data : new Blob([data], { type: mime });
+  const touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+  const file = typeof File === 'function' ? new File([blob], filename, { type: blob.type }) : null;
+  if (touch && file && navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({ files: [file] }).catch((e) => {
+      if (e.name !== 'AbortError') download(filename, blob);
+    });
+    return;
+  }
+  download(filename, blob);
+}
+
 function exportFountain() {
   const script = editor.getScript();
-  download(safeName(script.title, 'fountain'), toFountain(script), 'text/plain;charset=utf-8');
+  deliver(safeName(script.title, 'fountain'), toFountain(script), 'text/plain;charset=utf-8');
+}
+
+function exportPdfFile() {
+  const script = editor.getScript();
+  deliver(safeName(script.title, 'pdf'), toPdfBlob(script));
 }
 
 /* ---------- shared display text ---------- */
@@ -214,7 +236,7 @@ function titlePageHTML(script) {
   );
 }
 
-function exportPDF() {
+function exportPrint() {
   const html = toPrintHTML(editor.getScript());
   const prev = document.getElementById('wsPrintFrame');
   if (prev) prev.remove();
@@ -318,12 +340,13 @@ export function toDocxBlob(script) {
 
 function exportDocx() {
   const script = editor.getScript();
-  download(safeName(script.title, 'docx'), toDocxBlob(script));
+  deliver(safeName(script.title, 'docx'), toDocxBlob(script));
 }
 
 const FORMATS = {
   fountain: exportFountain,
-  pdf: exportPDF,
+  pdf: exportPdfFile,
+  print: exportPrint,
   docx: exportDocx,
 };
 
@@ -354,11 +377,15 @@ function build() {
         </button>
         <button class="export-fmt" data-fmt="pdf">
           <b>PDF</b>
-          <span>Print-formatted pages via your browser. On iPhone: Print → pinch out → Share to Files.</span>
+          <span>Industry-standard pages (Courier 12pt, US Letter) with a title page, scene and cue breaks, (MORE)/(CONT'D) and page numbers. Works offline.</span>
         </button>
         <button class="export-fmt" data-fmt="docx">
           <b>Word (.docx)</b>
           <span>Styled Word document for collaborators. Opens in Word, Pages and Google Docs.</span>
+        </button>
+        <button class="export-fmt" data-fmt="print">
+          <b>Print</b>
+          <span>Send the formatted script to a printer through your browser.</span>
         </button>
       </div>
       <h3 class="profile-sub">Title page</h3>

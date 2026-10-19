@@ -40,8 +40,14 @@ to that character's next line. Prefer full control? Switch the quick bar to
   ([FLASHBACK], [ARCHIVAL], [SURVEILLANCE]), parenthetical presets, and
   centered act markers (COLD OPEN / ACT ONE / TAG) with a page-window check
   in the outline (acts ~9–12 pp, hour drama ~45–63 pp)
-- **Export** — Fountain, PDF (native print), and Word (.docx) — all generated
-  with zero runtime dependencies and fully offline
+- **Export** — Fountain, PDF, Word (.docx) and Print — all generated with
+  zero runtime dependencies and fully offline. The PDF is written directly
+  (base-14 Courier, US Letter) with a title page, keep-with-next for scene
+  headings and cues, (MORE)/(CONT'D) speech splits and page numbers. On
+  iPhone, exports open the share sheet (Save to Files, Mail, AirDrop…)
+- **Scene Snippet** — share a scene (or its page) as an image for Instagram,
+  Threads, Bluesky and more: 4:5, square or story sizes in Paper or Night,
+  with generated alt text and a caption, each one tap to copy
 - **Fountain import** — open a `.fountain` file from Files (Highland, Slugline,
   Final Draft exports) as a new script; its characters and locations become
   chips straight away
@@ -61,8 +67,9 @@ export:
 
 - **Fountain** — a pure-JS plain-text generator; opens in Highland, Slugline,
   Final Draft and more.
-- **PDF** — the browser's own print-to-PDF from a dedicated print stylesheet
-  (real page breaks). On iPhone: Print → pinch out → Share to Files.
+- **PDF** — a hand-written PDF 1.4 file (`js/pdf.js`) using the PDF
+  standard Courier faces, so no font needs embedding. **Print** still uses
+  the browser's print dialog with a dedicated print stylesheet.
 - **Word (.docx)** — generated in pure JS via a tiny store-method ZIP writer
   (`js/zip.js`) plus hand-written WordprocessingML. A `.docx` is just a ZIP of
   XML, so no library is needed.
@@ -100,6 +107,9 @@ dependency is `@playwright/test`.
 - `js/export.js` + `js/zip.js` — Fountain / PDF / DOCX export, title page
 - `js/fountain.js` — Fountain import parser
 - `js/backup.js` — full backup / restore of every script
+- `js/layout.js` — screenplay line layout shared by the PDF and snippets
+- `js/pdf.js` — zero-dependency PDF writer and paginator
+- `js/snippet.js` — Scene Snippet image, alt text and sharing
 - `js/settings.js` — learned/manual toggle and set-list editor
 - `js/store.js` — debounced localStorage autosave + v1→v2 migration
 - `sw.js`, `manifest.webmanifest` — offline app shell + install metadata
