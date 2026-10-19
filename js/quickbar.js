@@ -1,5 +1,7 @@
-// Thumb-reach quick bar: context-sensitive chips that insert formatted
-// screenplay elements in one tap. Chips act on pointerup (so the chip row
+// Thumb-reach quick bar: two rows of chips that insert formatted
+// screenplay elements in one tap. The top row is context-sensitive scene
+// and formatting tools; the bottom row (nearest the thumb) is always the
+// script's characters. Chips act on pointerup (so the chip row
 // can still be swipe-scrolled) and cancel pointerdown so the editor
 // textarea never loses focus — the iOS keyboard stays up.
 
@@ -9,17 +11,20 @@ import { TYPE_LABELS, characterStatName, sceneLocation } from './model.js';
 import { topItems, DEFAULT_TRANSITIONS, getSettings, prefixMatch } from './suggest.js';
 
 let chipsEl;
+let charChipsEl;
 let cycleBtn;
 let undoBtn;
 let redoBtn;
 
 export function init() {
   chipsEl = document.getElementById('chips');
+  charChipsEl = document.getElementById('charChips');
   cycleBtn = document.getElementById('cycleType');
   undoBtn = document.getElementById('undoBtn');
   redoBtn = document.getElementById('redoBtn');
+  wireTaps(chipsEl, (chip) => chip._act && chip._act());
   wireTaps(
-    chipsEl,
+    charChipsEl,
     (chip) => chip._act && chip._act(),
     // Long-press a character chip to open its Personae Dramatis profile.
     (chip) => {
@@ -153,6 +158,33 @@ function chip(label, act, cls = '') {
   return { label, act, cls };
 }
 
+function toButtons(chips) {
+  return chips.map(({ label, act, cls }) => {
+    const b = document.createElement('button');
+    b.className = 'chip' + (cls ? ' ' + cls : '');
+    b.textContent = label;
+    b.setAttribute('aria-label', label);
+    b._act = act;
+    return b;
+  });
+}
+
+// Character row: from a character block the chip fills in that name;
+// anywhere else it starts a new CHARACTER + dialogue pair.
+function buildCharacterChips(type) {
+  return characterChips(12).map((n) =>
+    chip(
+      n,
+      () =>
+        type === 'character'
+          ? editor.setCharacterAndDialogue(n)
+          : editor.insertCharacterWithDialogue(n),
+      'chip-char'
+    )
+  );
+}
+
+// Top row: scene and formatting tools for the active element type.
 function buildChips(type) {
   switch (type) {
     case 'scene':
@@ -168,17 +200,13 @@ function buildChips(type) {
       return [
         chip('(V.O.)', () => setCue('(V.O.)')),
         chip('(O.S.)', () => setCue('(O.S.)')),
-        ...characterChips().map((n) =>
-          chip(n, () => editor.setCharacterAndDialogue(n), 'chip-char')
-        ),
+        chip('(CONT\'D)', () => setCue("(CONT'D)")),
+        chip('Action', () => editor.setActiveType('action')),
       ];
     case 'dialogue':
       return [
         chip('( )', () => editor.newBlock('paren', '')),
         ...PAREN_PRESETS.map((p) => chip('(' + p + ')', () => editor.newBlock('paren', p))),
-        ...characterChips(4).map((n) =>
-          chip(n, () => editor.insertCharacterWithDialogue(n), 'chip-char')
-        ),
         ...transitionChips(2).map((t) => chip(t, () => editor.insertTransitionThenScene(t))),
       ];
     case 'transition':
@@ -189,9 +217,6 @@ function buildChips(type) {
       return MARKERS.map((m) => chip(m, () => editor.updateActiveText(() => m)));
     default: // action, paren
       return [
-        ...characterChips(5).map((n) =>
-          chip(n, () => editor.insertCharacterWithDialogue(n), 'chip-char')
-        ),
         chip('INT.', () => editor.newBlock('scene', 'INT. ')),
         chip('EXT.', () => editor.newBlock('scene', 'EXT. ')),
         ...transitionChips(2).map((t) => chip(t, () => editor.insertTransitionThenScene(t))),
@@ -222,15 +247,18 @@ function currentCompletion() {
 function refreshCompletion() {
   if (!chipsEl) return;
   const c = currentCompletion();
-  let chip = chipsEl.querySelector('.chip-suggest');
-  if (!c) {
-    if (chip) chip.remove();
-    return;
+  // A name completion leads the character row; a location, the top row.
+  const row = editor.activeType() === 'character' ? charChipsEl : chipsEl;
+  let chip = document.querySelector('#quickbar .chip-suggest');
+  if (chip && (!c || chip.parentElement !== row)) {
+    chip.remove();
+    chip = null;
   }
+  if (!c) return;
   if (!chip) {
     chip = document.createElement('button');
     chip.className = 'chip chip-suggest';
-    chipsEl.insertBefore(chip, chipsEl.firstChild);
+    row.insertBefore(chip, row.firstChild);
   }
   chip.textContent = c.full;
   chip.setAttribute('aria-label', 'Complete ' + c.full);
@@ -241,15 +269,16 @@ export function refresh() {
   const type = editor.activeType();
   if (!type) return;
   cycleBtn.textContent = TYPE_LABELS[type];
-  const buttons = buildChips(type).map(({ label, act, cls }) => {
-    const b = document.createElement('button');
-    b.className = 'chip' + (cls ? ' ' + cls : '');
-    b.textContent = label;
-    b.setAttribute('aria-label', label);
-    b._act = act;
-    return b;
-  });
-  chipsEl.replaceChildren(...buttons);
+  chipsEl.replaceChildren(...toButtons(buildChips(type)));
+  const chars = toButtons(buildCharacterChips(type));
+  if (chars.length) {
+    charChipsEl.replaceChildren(...chars);
+  } else {
+    const empty = document.createElement('span');
+    empty.className = 'qb-empty';
+    empty.textContent = 'Characters you name will appear here';
+    charChipsEl.replaceChildren(empty);
+  }
   refreshCompletion();
   syncUndoRedo();
 }

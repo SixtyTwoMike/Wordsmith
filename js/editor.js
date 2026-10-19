@@ -339,7 +339,7 @@ export function activate(i) {
   notify();
 }
 
-function setActiveType(type) {
+export function setActiveType(type) {
   const el = script.elements[activeIndex];
   el.type = type;
   const div = pageEl.children[activeIndex];

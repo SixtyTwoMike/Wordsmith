@@ -18,10 +18,12 @@ to that character's next line. Prefer full control? Switch the quick bar to
 
 - Full screenplay element formatting: Scene Heading, Action, Character,
   Parenthetical, Dialogue, Transition — Courier, correct case and indents
-- Final Draft-style flow: Enter advances to the natural next element,
+- Final Draft-style flow: Enter advances to the natural next element (a
+  scene heading goes straight to a character cue),
   Enter on an empty line switches element type, Tab (or the type chip) cycles
-- Context-aware quick bar: character chips, INT./EXT. + recent locations +
-  DAY/NIGHT for scene headings, transition chips
+- Two-row quick bar: context-aware scene tools on top (INT./EXT. + recent
+  locations + DAY/NIGHT, transitions, parentheticals, act markers) and an
+  always-on row of the script's characters nearest the thumb
 - Learned suggestions with a manual "set list" override (add/remove/reorder)
 - **Multiple scripts** — a scripts sheet to create, switch, rename, duplicate
   and delete; each script learns its own characters/locations independently

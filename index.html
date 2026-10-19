@@ -22,12 +22,17 @@
 </header>
 <main id="page" aria-label="Script"></main>
 <div id="quickbar" class="glass">
-  <div id="chips" role="toolbar" aria-label="Quick insert"></div>
-  <div class="qb-fixed">
-    <button id="undoBtn" class="chip chip-tool" aria-label="Undo">&#8630;</button>
-    <button id="redoBtn" class="chip chip-tool" aria-label="Redo">&#8631;</button>
-    <button id="cycleType" class="chip chip-tool" aria-label="Change element type">Aa</button>
-    <button id="openSettings" class="chip chip-tool" aria-label="Settings">&#9881;</button>
+  <div class="qb-row">
+    <div id="chips" class="qb-chips" role="toolbar" aria-label="Scene and formatting"></div>
+    <div class="qb-fixed">
+      <button id="undoBtn" class="chip chip-tool" aria-label="Undo">&#8630;</button>
+      <button id="redoBtn" class="chip chip-tool" aria-label="Redo">&#8631;</button>
+      <button id="cycleType" class="chip chip-tool" aria-label="Change element type">Aa</button>
+      <button id="openSettings" class="chip chip-tool" aria-label="Settings">&#9881;</button>
+    </div>
+  </div>
+  <div class="qb-row">
+    <div id="charChips" class="qb-chips" role="toolbar" aria-label="Characters"></div>
   </div>
 </div>
 <div id="settingsSheet" hidden></div>

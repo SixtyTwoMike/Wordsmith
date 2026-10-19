@@ -15,19 +15,25 @@ async function getBlocks(page) {
   );
 }
 
+// Both quick-bar rows: scene/formatting tools on top, characters below.
 function chipTexts(page) {
-  return page.$$eval('#chips .chip', (cs) => cs.map((c) => c.textContent.trim()));
+  return page.$$eval('.qb-chips .chip', (cs) => cs.map((c) => c.textContent.trim()));
+}
+
+function charChipTexts(page) {
+  return page.$$eval('#charChips .chip', (cs) => cs.map((c) => c.textContent.trim()));
 }
 
 function chipNamed(page, label) {
-  return page.locator(`#chips .chip:text-is("${label}")`);
+  return page.locator(`.qb-chips .chip:text-is("${label}")`);
 }
 
 async function startScene(page, heading = 'INT. DINER - NIGHT') {
   await page.goto('/');
   await page.locator('#page .el').first().click();
   await page.keyboard.type(heading);
-  await page.keyboard.press('Enter'); // scene -> action
+  await page.keyboard.press('Enter'); // scene -> character
+  await page.keyboard.press('Enter'); // empty character -> action
 }
 
 // Type a character + one dialogue line, ending focused on a fresh action block.
@@ -204,7 +210,8 @@ test('scripts are isolated and switchable', async ({ page }) => {
   await page.locator('#title').fill('First');
   await page.locator('#page .el').first().click();
   await page.keyboard.type('INT. DINER - NIGHT');
-  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter'); // -> character
+  await page.keyboard.press('Enter'); // empty character -> action
   await speak(page, 'Sarah', 'Hello.');
   await expect(chipNamed(page, 'SARAH')).toBeVisible();
 
@@ -218,7 +225,7 @@ test('scripts are isolated and switchable', async ({ page }) => {
 
   await page.locator('#page .el').first().click();
   await page.keyboard.type('INT. OFFICE - DAY');
-  await page.keyboard.press('Enter'); // action context
+  await page.keyboard.press('Enter'); // character context
   await expect(chipNamed(page, 'SARAH')).toHaveCount(0);
 
   // Switch back to First: its blocks and learned SARAH return.
@@ -235,7 +242,8 @@ test('duplicate copies content and learned stats; delete removes a script', asyn
   await page.locator('#title').fill('Original');
   await page.locator('#page .el').first().click();
   await page.keyboard.type('INT. DINER - NIGHT');
-  await page.keyboard.press('Enter');
+  await page.keyboard.press('Enter'); // -> character
+  await page.keyboard.press('Enter'); // empty character -> action
   await speak(page, 'Sarah', 'Hello.');
 
   // Duplicate.
@@ -324,7 +332,7 @@ test('autocomplete completes a learned character name', async ({ page }) => {
   await page.keyboard.press('Tab'); // action -> character
   await page.keyboard.type('RED');
 
-  const sugg = page.locator('#chips .chip-suggest');
+  const sugg = page.locator('#charChips .chip-suggest');
   await expect(sugg).toHaveText('REDDINGTON');
   await sugg.click();
 
@@ -394,7 +402,7 @@ test('long-press a character chip opens its profile; edit and jump work', async 
   await chipNamed(page, 'SARAH').click(); // SARAH cue #2 + empty dialogue
   await page.keyboard.type('And we close at six.');
 
-  const chip = page.locator('#chips .chip-char', { hasText: 'SARAH' }).first();
+  const chip = page.locator('#charChips .chip-char', { hasText: 'SARAH' }).first();
   await longPress(page, chip);
 
   await expect(page.locator('#profileSheet')).toBeVisible();
@@ -425,7 +433,7 @@ test('a character and its (V.O.) form share one profile', async ({ page }) => {
   await page.keyboard.press('Enter'); // -> dialogue
   await page.keyboard.type('Voice of memory.');
 
-  const chip = page.locator('#chips .chip-char', { hasText: 'SARAH' }).first();
+  const chip = page.locator('#charChips .chip-char', { hasText: 'SARAH' }).first();
   await longPress(page, chip);
 
   await expect(page.locator('#profileSheet .profile-name')).toHaveText('SARAH');
@@ -529,7 +537,8 @@ test('act markers: auto-detect, outline act-length check, Fountain centering', a
   await page.keyboard.press('Enter'); // marker -> scene
   expect((await getBlocks(page)).at(-1).type).toBe('scene');
   await page.keyboard.type('INT. ROOM - DAY');
-  await page.keyboard.press('Enter'); // -> action
+  await page.keyboard.press('Enter'); // -> character
+  await page.keyboard.press('Enter'); // empty character -> action
   await page.keyboard.type('ACT ONE'); // -> marker
   await page.keyboard.press('Enter'); // -> scene
   await page.keyboard.type('EXT. STREET - DAY');
@@ -768,4 +777,70 @@ test('follows the system dark mode', async ({ page }) => {
   await page.emulateMedia({ colorScheme: 'light' });
   const light = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
   expect(light).toBe('rgb(247, 245, 239)');
+});
+
+test('Enter after a scene heading goes to a character, with names one tap away', async ({ page }) => {
+  await startScene(page); // learns nothing yet; ends on action
+  await speak(page, 'Sarah', 'We open at six.');
+  await page.keyboard.press('Tab'); // action -> character
+  await page.keyboard.press('Tab'); // -> transition
+  await page.keyboard.press('Tab'); // -> scene
+  await page.keyboard.type('EXT. PARKING LOT - NIGHT');
+  await page.keyboard.press('Enter');
+
+  let active = (await getBlocks(page)).find((b) => b.active);
+  expect(active.type).toBe('character');
+  expect(await charChipTexts(page)).toEqual(['SARAH']);
+
+  // Tapping the name fills the cue and drops into dialogue.
+  await page.locator('#charChips .chip', { hasText: 'SARAH' }).click();
+  const blocks = await getBlocks(page);
+  expect(blocks.at(-2)).toMatchObject({ type: 'character', text: 'SARAH' });
+  expect(blocks.at(-1)).toMatchObject({ type: 'dialogue', active: true });
+
+  // Enter on an empty character line still escapes to action.
+  await page.keyboard.type('Bye.');
+  await page.keyboard.press('Enter'); // dialogue -> action
+  await page.keyboard.press('Tab'); // -> character
+  await page.keyboard.press('Enter');
+  active = (await getBlocks(page)).find((b) => b.active);
+  expect(active.type).toBe('action');
+});
+
+test('quick bar has a scene-tools row above an always-on character row', async ({ page }) => {
+  await page.goto('/');
+  await expect(page.locator('#charChips .qb-empty')).toHaveText('Characters you name will appear here');
+
+  await page.locator('#page .el').first().click();
+  await page.keyboard.type('INT. DINER - NIGHT');
+  expect(await page.$$eval('#chips .chip', (cs) => cs.map((c) => c.textContent))).toEqual(
+    expect.arrayContaining(['INT.', 'EXT.', '- DAY', '- NIGHT'])
+  );
+  await page.keyboard.press('Enter'); // -> character
+  await page.keyboard.type('Sarah');
+  await page.keyboard.press('Enter'); // -> dialogue
+  await page.keyboard.type('Hi.');
+  await page.keyboard.press('Enter'); // -> action
+
+  // Action context: scene tools on top, SARAH below, and they don't mix.
+  const top = await page.$$eval('#chips .chip', (cs) => cs.map((c) => c.textContent));
+  expect(top).toEqual(expect.arrayContaining(['INT.', 'EXT.']));
+  expect(top).not.toContain('SARAH');
+  expect(await charChipTexts(page)).toEqual(['SARAH']);
+
+  // The character row sits below the tools row.
+  const toolsBox = await page.locator('#chips').boundingBox();
+  const charsBox = await page.locator('#charChips').boundingBox();
+  expect(charsBox.y).toBeGreaterThan(toolsBox.y);
+});
+
+test('when framed and the keyboard is undetectable, the quick bar docks at the top', async ({ page }) => {
+  await page.goto('/');
+  // Load the app inside a frame, as the preview host does.
+  await page.setContent('<iframe src="/" style="width:390px;height:700px;border:0"></iframe>');
+  const app = page.frameLocator('iframe');
+  await app.locator('#page .el').first().click();
+  await expect(app.locator('body')).toHaveClass(/qb-top/);
+  const bar = await app.locator('#quickbar').boundingBox();
+  expect(bar.y).toBeLessThan(200);
 });

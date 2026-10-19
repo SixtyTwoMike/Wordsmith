@@ -24,7 +24,7 @@ export const PLACEHOLDERS = {
 
 // Enter on a non-empty block: type of the block inserted after it.
 export const ENTER_NEXT = {
-  scene: 'action',
+  scene: 'character', // straight to who speaks; Enter again escapes to action
   action: 'action',
   character: 'dialogue',
   paren: 'dialogue',

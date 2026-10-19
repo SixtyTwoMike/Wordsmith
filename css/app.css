@@ -190,7 +190,7 @@ body {
   bottom: 0;
   z-index: 20;
   display: flex;
-  align-items: center;
+  flex-direction: column;
   gap: 6px;
   margin: 0 8px calc(8px + env(safe-area-inset-bottom));
   padding: 6px;
@@ -201,16 +201,31 @@ body {
 /* Keyboard up: hug the keyboard instead of clearing the home indicator. */
 #quickbar.kb-open { margin-bottom: 6px; }
 
-#chips {
+.qb-row { display: flex; align-items: center; gap: 6px; min-height: 36px; }
+
+.qb-chips {
   display: flex;
   flex: 1;
+  min-width: 0;
   gap: 6px;
   overflow-x: auto;
   touch-action: pan-x;
   scrollbar-width: none;
 }
 
-#chips::-webkit-scrollbar { display: none; }
+.qb-chips::-webkit-scrollbar { display: none; }
+
+.qb-empty { color: var(--dim); font-size: 13px; padding: 0 8px; align-self: center; white-space: nowrap; }
+
+/* Keyboard can't be detected (e.g. the app is embedded in another page's
+   frame): dock the quick bar under the title bar, out of the keyboard's way. */
+body.qb-top #quickbar {
+  top: calc(env(safe-area-inset-top) + 70px);
+  bottom: auto;
+  margin-bottom: 0;
+  transform: none !important;
+}
+body.qb-top #page { padding-top: 112px; }
 
 .chip {
   flex: 0 0 auto;
@@ -239,15 +254,15 @@ body {
 
 .chip-tool {
   border-radius: 18px;
-  padding: 9px 10px;
+  padding: 9px 8px;
   color: var(--dim);
 }
 
 .chip-tool:disabled { opacity: 0.32; }
 
-#cycleType { min-width: 64px; color: var(--text); }
+#cycleType { min-width: 0; font-size: 13px; color: var(--text); }
 
-.qb-fixed { display: flex; gap: 6px; }
+.qb-fixed { display: flex; gap: 4px; }
 
 /* ---------- sheets (settings + scripts + outline + export + profile) ---------- */
 #settingsSheet, #scriptsSheet, #outlineSheet, #exportSheet, #profileSheet {

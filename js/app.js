@@ -190,6 +190,31 @@ function placeQuickbar() {
   pageEl.style.paddingBottom = keyboard + 200 + 'px';
 }
 
+// Inside a frame (e.g. a preview embedded in another app) iOS doesn't
+// shrink our visual viewport for the keyboard, so the bar can't follow it.
+// If typing starts and no keyboard shows up, dock the bar at the top
+// instead, where the keyboard can't cover it. Only touch devices, and only
+// when framed: a top-level page always sees the keyboard.
+const framed = window.self !== window.top;
+const touch = window.matchMedia && window.matchMedia('(pointer: coarse)').matches;
+const keyboardSeen = () => vv && window.innerHeight - vv.height > 80;
+
+if (framed && touch) {
+  document.addEventListener('focusin', (e) => {
+    if (e.target.id !== 'blockInput') return;
+    setTimeout(() => {
+      if (document.activeElement === e.target && !keyboardSeen()) {
+        document.body.classList.add('qb-top');
+      }
+    }, 500);
+  });
+  document.addEventListener('focusout', () => {
+    setTimeout(() => {
+      if (document.activeElement?.id !== 'blockInput') document.body.classList.remove('qb-top');
+    }, 100);
+  });
+}
+
 if (vv) {
   vv.addEventListener('resize', placeQuickbar);
   vv.addEventListener('scroll', placeQuickbar);
