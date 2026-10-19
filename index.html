@@ -4,9 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <title>Wordsmith</title>
-<meta name="theme-color" content="#16191f">
+<meta name="theme-color" content="#f7f5ef" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#131418" media="(prefers-color-scheme: dark)">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="apple-mobile-web-app-title" content="Wordsmith">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
@@ -14,13 +15,13 @@
 <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
-<header id="topbar">
+<header id="topbar" class="glass">
   <button id="openScripts" class="topbtn" aria-label="Scripts">&#9776;</button>
   <input id="title" type="text" aria-label="Script title" placeholder="Untitled Script" autocomplete="off">
   <button id="openOutline" class="topbtn topbtn-count" aria-label="Scene outline"><span id="pageCount">1</span> pp</button>
 </header>
 <main id="page" aria-label="Script"></main>
-<div id="quickbar">
+<div id="quickbar" class="glass">
   <div id="chips" role="toolbar" aria-label="Quick insert"></div>
   <div class="qb-fixed">
     <button id="undoBtn" class="chip chip-tool" aria-label="Undo">&#8630;</button>

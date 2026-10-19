@@ -14,6 +14,7 @@ export function init(config) {
 
 function open() {
   render();
+  status('');
   sheet.hidden = false;
 }
 
@@ -31,6 +32,17 @@ function build() {
       <button id="newScript" class="btn-primary">+ New Script</button>
       <button id="exportBtn" class="btn-secondary">⬆ Export current script</button>
       <ul id="scriptList" class="script-list"></ul>
+      <h3 class="profile-sub">Import &amp; backup</h3>
+      <div class="btn-row">
+        <button id="importBtn" class="btn-secondary">Import Fountain</button>
+        <button id="backupBtn" class="btn-secondary">Back up all</button>
+        <button id="restoreBtn" class="btn-secondary">Restore</button>
+      </div>
+      <p id="fileStatus" class="hint" role="status"></p>
+      <p class="hint">Scripts live only on this device. Back up now and then —
+        Safari can clear site data for apps you haven’t opened in a while.</p>
+      <input id="importFile" type="file" accept=".fountain,.txt,text/plain" hidden>
+      <input id="restoreFile" type="file" accept=".json,application/json" hidden>
     </div>`;
   sheet.querySelector('#closeScripts').addEventListener('click', close);
   sheet.querySelector('#newScript').addEventListener('click', () => {
@@ -40,6 +52,39 @@ function build() {
   sheet.querySelector('#exportBtn').addEventListener('click', () => {
     close();
     cfg.onExport();
+  });
+  sheet.querySelector('#backupBtn').addEventListener('click', () => {
+    cfg.onBackup();
+    status('Backup saved.');
+  });
+  wireFile('#importBtn', '#importFile', async (file) => {
+    await cfg.onImport(file);
+    close();
+  });
+  wireFile('#restoreBtn', '#restoreFile', async (file) => {
+    const n = await cfg.onRestore(file);
+    render();
+    status(n ? `Restored ${n} script${n === 1 ? '' : 's'}.` : 'Nothing new to restore.');
+  });
+}
+
+function status(text) {
+  sheet.querySelector('#fileStatus').textContent = text;
+}
+
+// A visible button opens a hidden file input; errors surface in the sheet.
+function wireFile(btnSel, inputSel, handle) {
+  const input = sheet.querySelector(inputSel);
+  sheet.querySelector(btnSel).addEventListener('click', () => input.click());
+  input.addEventListener('change', async () => {
+    const file = input.files && input.files[0];
+    input.value = '';
+    if (!file) return;
+    try {
+      await handle(file);
+    } catch (e) {
+      status(e.message || 'Couldn’t read that file.');
+    }
   });
 }
 

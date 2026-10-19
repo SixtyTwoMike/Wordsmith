@@ -46,6 +46,14 @@ export function copyScriptData(fromId, toId) {
   save('settings', allSettings);
 }
 
+// Install learned data for a restored script (missing parts start fresh).
+export function importScriptData(id, data = {}) {
+  allStats[id] = data.stats || freshStats();
+  allSettings[id] = data.settings || freshSettings();
+  save('stats', allStats);
+  save('settings', allSettings);
+}
+
 export function getSettings() {
   return settings;
 }

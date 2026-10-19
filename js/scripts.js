@@ -124,6 +124,26 @@ export function duplicate(id) {
   return { fromId: id, toId: copy.id, script: copy };
 }
 
+// Add an already-built script (from a Fountain import or a backup restore)
+// to the catalog and make it current. Ids that clash with an existing
+// script are replaced so nothing local is ever overwritten.
+export function add(s) {
+  if (!s.id || scripts[s.id]) s.id = uid();
+  const now = Date.now();
+  s.createdAt = s.createdAt || now;
+  s.updatedAt = s.updatedAt || now;
+  if (!Array.isArray(s.elements) || !s.elements.length) s.elements = [newElement('scene', '')];
+  scripts[s.id] = s;
+  index.scripts.push(meta(s));
+  index.current = s.id;
+  persist();
+  return s;
+}
+
+export function get(id) {
+  return scripts[id] || null;
+}
+
 // Remove a script. If it was the last one, seed a fresh empty script so
 // the app is never without a current script. Returns the new current one.
 export function remove(id) {

@@ -43,6 +43,19 @@ export function flush() {
   pending = {};
 }
 
+// Every persisted key except the legacy v1 script, as one object (for a
+// full backup). Pending debounced writes are flushed first so the
+// snapshot includes the latest edits.
+export function snapshot() {
+  flush();
+  const out = {};
+  for (const kind of Object.keys(KEYS)) {
+    if (kind === 'script') continue;
+    out[kind] = load(kind, null);
+  }
+  return out;
+}
+
 // One-time upgrade from the single-script v1 layout to the v2 catalog.
 // v1 stored one script under `script`, with flat `stats`/`settings`.
 // v2 keys everything by script id, so nest the legacy data under a

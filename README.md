@@ -40,6 +40,15 @@ to that character's next line. Prefer full control? Switch the quick bar to
   in the outline (acts ~9–12 pp, hour drama ~45–63 pp)
 - **Export** — Fountain, PDF (native print), and Word (.docx) — all generated
   with zero runtime dependencies and fully offline
+- **Fountain import** — open a `.fountain` file from Files (Highland, Slugline,
+  Final Draft exports) as a new script; its characters and locations become
+  chips straight away
+- **Title page** — written by, based on, draft date and contact, included in
+  every export
+- **Backup & restore** — one JSON file holding every script with its learned
+  chips and character profiles; restoring merges and never overwrites
+- **Liquid Glass look** — floating translucent bars and sheets, following the
+  system light/dark setting
 - Auto-saves locally (localStorage); no account, no server
 - Installable PWA, works fully offline
 
@@ -86,7 +95,9 @@ dependency is `@playwright/test`.
 - `js/switcher.js` — scripts sheet UI
 - `js/navigator.js` — scene outline, page/runtime, act-structure check
 - `js/characters.js` + `js/profile.js` — Personae Dramatis registry and overlay
-- `js/export.js` + `js/zip.js` — Fountain / PDF / DOCX export
+- `js/export.js` + `js/zip.js` — Fountain / PDF / DOCX export, title page
+- `js/fountain.js` — Fountain import parser
+- `js/backup.js` — full backup / restore of every script
 - `js/settings.js` — learned/manual toggle and set-list editor
 - `js/store.js` — debounced localStorage autosave + v1→v2 migration
 - `sw.js`, `manifest.webmanifest` — offline app shell + install metadata

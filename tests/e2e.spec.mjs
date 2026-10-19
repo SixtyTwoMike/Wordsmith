@@ -605,3 +605,167 @@ test('migrates v1 single-script storage to the v2 catalog', async ({ page }) => 
   const index = await page.evaluate(() => localStorage.getItem('wordsmith.scriptIndex.v1'));
   expect(index).not.toBeNull();
 });
+
+const SAMPLE_FOUNTAIN = `Title: The Long Night
+Credit: Written by
+Author: Jo Writer
+Draft date: First Draft
+Contact:
+    jo@example.com
+    555-0100
+
+> COLD OPEN <
+
+INT. DINER - NIGHT #1#
+
+Sarah wipes the counter. [[a note to cut]]
+
+SARAH
+(quietly)
+We open at six.
+
+@McCLANE
+Not tonight.
+
+!LOUD NOISE.
+
+CUT TO:
+
+EXT. PARKING LOT - CONTINUOUS
+`;
+
+test('imports a Fountain file as a new script with learned chips', async ({ page }) => {
+  await page.goto('/');
+  await page.locator('#openScripts').click();
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.locator('#importBtn').click(),
+  ]);
+  await chooser.setFiles({
+    name: 'long-night.fountain',
+    mimeType: 'text/plain',
+    buffer: Buffer.from(SAMPLE_FOUNTAIN),
+  });
+
+  await expect(page.locator('#scriptsSheet')).toBeHidden();
+  await expect(page.locator('#title')).toHaveValue('The Long Night');
+  const blocks = await getBlocks(page);
+  expect(blocks.map((b) => [b.type, b.text])).toEqual([
+    ['marker', 'COLD OPEN'],
+    ['scene', 'INT. DINER - NIGHT'],
+    ['action', 'Sarah wipes the counter.'],
+    ['character', 'SARAH'],
+    ['paren', '(quietly)'],
+    ['dialogue', 'We open at six.'],
+    ['character', 'MCCLANE'], // displayed in caps
+    ['dialogue', 'Not tonight.'],
+    ['action', 'LOUD NOISE.'],
+    ['transition', 'CUT TO:'],
+    ['scene', 'EXT. PARKING LOT - CONTINUOUS'],
+  ]);
+
+  // The imported characters are already chips; the title page came along.
+  await page.locator('#page .el').nth(2).click(); // action block
+  await page.keyboard.press('Tab'); // -> character
+  expect(await chipTexts(page)).toEqual(expect.arrayContaining(['SARAH', 'MCCLANE']));
+  await openExport(page);
+  await expect(page.locator('#titlePageFields [data-field="author"]')).toHaveValue('Jo Writer');
+  await expect(page.locator('#titlePageFields [data-field="contact"]')).toHaveValue(
+    'jo@example.com\n555-0100'
+  );
+
+  // And the original script is still in the list.
+  await page.locator('#closeExport').click();
+  await page.locator('#openScripts').click();
+  await expect(page.locator('.script-row')).toHaveCount(2);
+});
+
+test('title page fields persist and appear in every export', async ({ page }) => {
+  await buildDinerScene(page);
+  await openExport(page);
+  await page.locator('#titlePageFields [data-field="author"]').fill('Jo Writer');
+  await page.locator('#titlePageFields [data-field="contact"]').fill('jo@example.com\n555-0100');
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('.export-fmt[data-fmt="fountain"]').click(),
+  ]);
+  const text = fs.readFileSync(await download.path(), 'utf8');
+  expect(text).toContain(
+    'Title: Night Shift\nCredit: Written by\nAuthor: Jo Writer\nContact:\n    jo@example.com\n    555-0100\n\n'
+  );
+
+  const [docx] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('.export-fmt[data-fmt="docx"]').click(),
+  ]);
+  const xml = fs.readFileSync(await docx.path()).toString('utf8');
+  expect(xml).toContain('Jo Writer');
+  expect(xml).toContain('w:type="page"');
+
+  await page.addInitScript(() => {
+    window.print = () => {};
+  });
+  await page.reload();
+  await openExport(page);
+  await expect(page.locator('#titlePageFields [data-field="author"]')).toHaveValue('Jo Writer');
+  await page.locator('.export-fmt[data-fmt="pdf"]').click();
+  const html = await page.locator('#wsPrintFrame').getAttribute('srcdoc');
+  expect(html).toContain('<p class="tp-author">Jo Writer</p>');
+  expect(html).toContain('<p class="tp-credit">Written by</p>');
+});
+
+test('backup downloads every script; restore merges without duplicates', async ({ page }) => {
+  await buildDinerScene(page);
+  await page.locator('#openScripts').click();
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    page.locator('#backupBtn').click(),
+  ]);
+  expect(download.suggestedFilename()).toMatch(/^wordsmith-backup-\d{4}-\d{2}-\d{2}\.json$/);
+  const backup = fs.readFileSync(await download.path(), 'utf8');
+  const parsed = JSON.parse(backup);
+  expect(parsed.format).toBe('wordsmith-backup');
+  expect(parsed.scripts).toHaveLength(1);
+  expect(parsed.scripts[0].stats.characters).toHaveProperty('SARAH');
+
+  const restore = async (buffer, name = 'backup.json') => {
+    const [chooser] = await Promise.all([
+      page.waitForEvent('filechooser'),
+      page.locator('#restoreBtn').click(),
+    ]);
+    await chooser.setFiles({ name, mimeType: 'application/json', buffer });
+  };
+
+  // Same device, unchanged: nothing to restore.
+  await restore(Buffer.from(backup));
+  await expect(page.locator('#fileStatus')).toHaveText('Nothing new to restore.');
+  await expect(page.locator('.script-row')).toHaveCount(1);
+
+  // A wiped device: restore brings the script and its learned chips back.
+  await page.evaluate(() => localStorage.clear());
+  await page.reload();
+  await page.locator('#openScripts').click();
+  await restore(Buffer.from(backup));
+  await expect(page.locator('#fileStatus')).toHaveText('Restored 1 script.');
+  await expect(page.locator('#title')).toHaveValue('Night Shift');
+  await page.locator('#closeScripts').click();
+  await page.locator('#page .el').nth(1).click();
+  await page.keyboard.press('Tab');
+  expect(await chipTexts(page)).toContain('SARAH');
+
+  // A file that isn't a backup is rejected with a message.
+  await page.locator('#openScripts').click();
+  await restore(Buffer.from('not json'), 'notes.json');
+  await expect(page.locator('#fileStatus')).toHaveText('That file isn’t a Wordsmith backup.');
+});
+
+test('follows the system dark mode', async ({ page }) => {
+  await page.emulateMedia({ colorScheme: 'dark' });
+  await page.goto('/');
+  const bg = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(bg).toBe('rgb(19, 20, 24)');
+  await page.emulateMedia({ colorScheme: 'light' });
+  const light = await page.evaluate(() => getComputedStyle(document.body).backgroundColor);
+  expect(light).toBe('rgb(247, 245, 239)');
+});

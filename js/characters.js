@@ -34,6 +34,11 @@ export function copyScriptData(fromId, toId) {
   save('characters', all);
 }
 
+export function importScriptData(id, profiles) {
+  all[id] = profiles || {};
+  save('characters', all);
+}
+
 export function getProfile(name) {
   return reg[characterStatName(name)] || null;
 }

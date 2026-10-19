@@ -36,6 +36,36 @@ function actionNeedsForce(text, atDocStart) {
   return allCaps || sceneish || transitionish || titleKeyish;
 }
 
+/* ---------- title page ---------- */
+
+// Optional title-page fields stored on the script (script.titlePage).
+export const TITLE_FIELDS = [
+  { key: 'author', label: 'Written by', placeholder: 'Your name' },
+  { key: 'source', label: 'Based on', placeholder: 'Optional — e.g. the novel by…' },
+  { key: 'draftDate', label: 'Draft date', placeholder: 'e.g. First Draft, Oct 2026' },
+  { key: 'contact', label: 'Contact', placeholder: 'Email, phone, agent…', multiline: true },
+];
+
+function titlePageOf(script) {
+  const tp = script.titlePage || {};
+  const out = {};
+  for (const { key } of TITLE_FIELDS) out[key] = (tp[key] || '').trim();
+  out.credit = (tp.credit || '').trim() || (out.author ? 'Written by' : '');
+  return out;
+}
+
+function hasTitlePage(script) {
+  const tp = titlePageOf(script);
+  return TITLE_FIELDS.some(({ key }) => tp[key]);
+}
+
+function fountainField(key, value) {
+  if (!value) return '';
+  const lines = value.split('\n');
+  if (lines.length === 1) return `${key}: ${value}\n`;
+  return `${key}:\n` + lines.map((l) => '    ' + l).join('\n') + '\n';
+}
+
 export function toFountain(script) {
   const els = script.elements || [];
   const title = (script.title || '').trim();
@@ -44,7 +74,7 @@ export function toFountain(script) {
   const pushAction = (text) => {
     if (!text) return;
     // atDocStart matters only when there is no title page to terminate.
-    const atDocStart = paras.length === 0 && !title;
+    const atDocStart = paras.length === 0 && !title && !hasTitlePage(script);
     paras.push(actionNeedsForce(text, atDocStart) ? '!' + text : text);
   };
 
@@ -79,7 +109,15 @@ export function toFountain(script) {
   }
 
   const body = paras.join('\n\n');
-  const header = title ? 'Title: ' + title + '\n\n' : '';
+  const tp = titlePageOf(script);
+  const fields =
+    fountainField('Title', title) +
+    fountainField('Credit', tp.credit) +
+    fountainField('Author', tp.author) +
+    fountainField('Source', tp.source) +
+    fountainField('Draft date', tp.draftDate) +
+    fountainField('Contact', tp.contact);
+  const header = fields ? fields + '\n' : '';
   return header + body + '\n';
 }
 
@@ -97,7 +135,7 @@ export function safeName(title, ext) {
   return base + '.' + ext;
 }
 
-function download(filename, data, mime) {
+export function download(filename, data, mime) {
   const blob = data instanceof Blob ? data : new Blob([data], { type: mime });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
@@ -145,8 +183,11 @@ export function toPrintHTML(script) {
   @page { size: letter; margin: 1in; }
   * { box-sizing: border-box; }
   body { font-family: 'Courier New', Courier, monospace; font-size: 12pt; line-height: 1; color: #000; margin: 0; }
-  .title-page { text-align: center; page-break-after: always; padding-top: 3.5in; }
-  .title-page h1 { font-size: 12pt; font-weight: bold; text-transform: uppercase; margin: 0; }
+  .title-page { position: relative; height: 9in; text-align: center; page-break-after: always; padding-top: 3in; }
+  .title-page h1 { font-size: 12pt; font-weight: bold; text-transform: uppercase; text-decoration: underline; margin: 0 0 24pt; }
+  .title-page p { margin: 0 0 12pt; white-space: pre-wrap; }
+  .title-page .tp-contact { position: absolute; left: 0; bottom: 0; text-align: left; margin: 0; }
+  .title-page .tp-draft { position: absolute; right: 0; bottom: 0; text-align: right; margin: 0; }
   .el { margin: 0 0 12pt; white-space: pre-wrap; }
   .scene { font-weight: bold; text-transform: uppercase; }
   .character { text-transform: uppercase; margin-left: 3.7in; margin-bottom: 0; }
@@ -156,9 +197,21 @@ export function toPrintHTML(script) {
   .marker { text-transform: uppercase; text-align: center; font-weight: bold; text-decoration: underline; }
   @media screen { body { background: #fff; padding: 1in; max-width: 8.5in; margin: 0 auto; } }
 </style></head><body>
-<section class="title-page"><h1>${escHtml(title)}</h1></section>
+<section class="title-page"><h1>${escHtml(title)}</h1>${titlePageHTML(script)}</section>
 ${rows}
 </body></html>`;
+}
+
+function titlePageHTML(script) {
+  const tp = titlePageOf(script);
+  const p = (cls, text) => (text ? `<p class="${cls}">${escHtml(text)}</p>` : '');
+  return (
+    p('tp-credit', tp.credit) +
+    p('tp-author', tp.author) +
+    p('tp-source', tp.source) +
+    p('tp-contact', tp.contact) +
+    p('tp-draft', tp.draftDate)
+  );
 }
 
 function exportPDF() {
@@ -206,10 +259,26 @@ function docxParagraph(el) {
 export function toDocxBlob(script) {
   const title = (script.title || '').trim();
   const paras = [];
-  if (title) {
-    paras.push(
-      `<w:p><w:pPr><w:jc w:val="center"/></w:pPr><w:r><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/><w:sz w:val="24"/><w:b/></w:rPr><w:t xml:space="preserve">${escXml(up(title))}</w:t></w:r></w:p>`
-    );
+  const tp = titlePageOf(script);
+  if (title || hasTitlePage(script)) {
+    // Title page: title a third of the way down, credits beneath, contact
+    // and draft date after, then a page break before the script.
+    const run = (text, extra = '') => {
+      const lines = text
+        .split('\n')
+        .map((line, i) => (i ? '<w:br/>' : '') + `<w:t xml:space="preserve">${escXml(line)}</w:t>`)
+        .join('');
+      return `<w:r><w:rPr><w:rFonts w:ascii="Courier New" w:hAnsi="Courier New"/><w:sz w:val="24"/>${extra}</w:rPr>${lines}</w:r>`;
+    };
+    const para = (text, { jc = 'center', before = 0, extra = '' } = {}) =>
+      text
+        ? `<w:p><w:pPr><w:jc w:val="${jc}"/><w:spacing w:before="${before}" w:after="240"/></w:pPr>${run(text, extra)}</w:p>`
+        : '';
+    paras.push(para(up(title || 'Untitled Script'), { before: 4320, extra: '<w:b/><w:u w:val="single"/>' }));
+    paras.push(para(tp.credit), para(tp.author), para(tp.source));
+    paras.push(para(tp.draftDate, { jc: 'right', before: 2880 }));
+    paras.push(para(tp.contact, { jc: 'left', before: tp.draftDate ? 0 : 2880 }));
+    paras.push('<w:p><w:r><w:br w:type="page"/></w:r></w:p>');
   }
   for (const el of script.elements || []) {
     const p = docxParagraph(el);
@@ -262,7 +331,10 @@ const FORMATS = {
 
 let sheet;
 
-export function init() {
+let onPersist = () => {};
+
+export function init(persist) {
+  if (persist) onPersist = persist;
   sheet = document.getElementById('exportSheet');
   build();
 }
@@ -289,7 +361,30 @@ function build() {
           <span>Styled Word document for collaborators. Opens in Word, Pages and Google Docs.</span>
         </button>
       </div>
+      <h3 class="profile-sub">Title page</h3>
+      <p class="hint">Included at the front of every export.</p>
+      <div id="titlePageFields"></div>
     </div>`;
+  const fieldsEl = sheet.querySelector('#titlePageFields');
+  for (const f of TITLE_FIELDS) {
+    const label = document.createElement('label');
+    label.className = 'profile-field';
+    const span = document.createElement('span');
+    span.textContent = f.label;
+    const input = document.createElement(f.multiline ? 'textarea' : 'input');
+    if (!f.multiline) input.type = 'text';
+    input.dataset.field = f.key;
+    input.placeholder = f.placeholder;
+    input.autocomplete = 'off';
+    input.addEventListener('input', () => {
+      const script = editor.getScript();
+      script.titlePage = { ...(script.titlePage || {}), [f.key]: input.value };
+      script.updatedAt = Date.now();
+      onPersist();
+    });
+    label.append(span, input);
+    fieldsEl.appendChild(label);
+  }
   sheet.querySelector('#closeExport').addEventListener('click', close);
   sheet.querySelector('#exportFormats').addEventListener('click', (e) => {
     const btn = e.target.closest('button[data-fmt]');
@@ -301,7 +396,12 @@ function build() {
 
 export function open() {
   editor.commitActive();
-  sheet.querySelector('#exportName').textContent = editor.getScript().title || 'Untitled Script';
+  const script = editor.getScript();
+  sheet.querySelector('#exportName').textContent = script.title || 'Untitled Script';
+  const tp = script.titlePage || {};
+  for (const input of sheet.querySelectorAll('#titlePageFields [data-field]')) {
+    input.value = tp[input.dataset.field] || '';
+  }
   sheet.hidden = false;
 }
 

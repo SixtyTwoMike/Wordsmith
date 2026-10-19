@@ -15,6 +15,9 @@ import * as outline from './navigator.js';
 import * as exporter from './export.js';
 import * as characters from './characters.js';
 import * as profile from './profile.js';
+import { parseFountain } from './fountain.js';
+import { toBackup, parseBackup, sameContent, backupFilename } from './backup.js';
+import { createScript, characterStatName, sceneLocation } from './model.js';
 
 const current = scripts.initCatalog();
 suggest.activateScript(scripts.currentId());
@@ -37,7 +40,7 @@ editor.init(current, document.getElementById('page'), () =>
 quickbar.init();
 settings.init(() => quickbar.refresh());
 outline.init();
-exporter.init();
+exporter.init(() => scripts.syncMeta(editor.getScript()));
 profile.init();
 
 // Live page count in the header (1 page ≈ 1 minute of screen time).
@@ -63,6 +66,56 @@ function openScript(id) {
   updateHeader();
 }
 
+// Make a script current across every module (stats, profiles, editor).
+function showScript(s) {
+  suggest.activateScript(s.id);
+  characters.activateScript(s.id);
+  editor.load(s);
+  quickbar.refresh();
+  updateHeader();
+}
+
+// Import a .fountain file as a new script, and teach the chips its
+// characters, locations and transitions so they're one tap away at once.
+async function importFountain(file) {
+  const parsed = parseFountain(await file.text());
+  editor.commitActive();
+  const s = createScript(parsed.title || file.name.replace(/\.[^.]+$/, ''));
+  s.elements = parsed.elements;
+  if (Object.keys(parsed.titlePage).length) s.titlePage = parsed.titlePage;
+  scripts.add(s);
+  suggest.activateScript(s.id);
+  for (const el of s.elements) {
+    if (el.type === 'character') suggest.recordUse('characters', characterStatName(el.text));
+    else if (el.type === 'scene' && sceneLocation(el.text)) suggest.recordUse('locations', sceneLocation(el.text));
+    else if (el.type === 'transition') suggest.recordUse('transitions', el.text);
+  }
+  showScript(s);
+}
+
+// Restore a backup by merging: scripts already here unchanged are skipped,
+// everything else comes in as an extra script (never overwriting local work).
+async function restoreBackup(file) {
+  const entries = parseBackup(await file.text());
+  editor.commitActive();
+  const local = scripts.list().map((m) => scripts.get(m.id));
+  let added = 0;
+  let last = null;
+  for (const e of entries) {
+    if (local.some((l) => sameContent(l, e.script))) continue;
+    const copy = JSON.parse(JSON.stringify(e.script));
+    // An edited version of a script that's still here: keep both, labelled.
+    if (scripts.get(copy.id)) copy.title = (copy.title || 'Untitled') + ' (restored)';
+    const s = scripts.add(copy);
+    suggest.importScriptData(s.id, { stats: e.stats, settings: e.settings });
+    characters.importScriptData(s.id, e.characters);
+    last = s;
+    added++;
+  }
+  if (last) showScript(last);
+  return added;
+}
+
 switcher.init({
   list: () => scripts.list(),
   currentId: () => scripts.currentId(),
@@ -79,6 +132,16 @@ switcher.init({
   },
   onRename: (id, title) => scripts.rename(id, title),
   onExport: () => exporter.open(),
+  onImport: importFountain,
+  onRestore: restoreBackup,
+  onBackup: () => {
+    editor.commitActive();
+    exporter.download(
+      backupFilename(),
+      JSON.stringify(toBackup(), null, 1),
+      'application/json'
+    );
+  },
   onDuplicate: (id) => {
     editor.commitActive();
     const res = scripts.duplicate(id);
@@ -123,6 +186,7 @@ function placeQuickbar() {
   const offset = vv.offsetTop + vv.height - window.innerHeight;
   quickbarEl.style.transform = `translateY(${offset}px)`;
   const keyboard = Math.max(0, window.innerHeight - vv.height);
+  quickbarEl.classList.toggle('kb-open', keyboard > 80);
   pageEl.style.paddingBottom = keyboard + 200 + 'px';
 }
 

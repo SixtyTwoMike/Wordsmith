@@ -1,13 +1,65 @@
 :root {
-  --chrome: #16191f;
-  --chrome-glass: rgba(22, 25, 31, 0.96);
-  --border: #2a303a;
-  --text: #e8e6df;
-  --dim: #9aa0ab;
-  --accent: #e0a458;
-  --chip-bg: #232833;
+  color-scheme: light dark;
+  /* page */
   --paper: #f7f5ef;
   --ink: #1c1c1c;
+  --ink-dim: #4a4a4a;
+  --ink-faint: #b5b0a4;
+  /* Liquid Glass chrome: translucent, blurred, with a bright rim */
+  --glass: rgba(255, 255, 255, 0.64);
+  --glass-strong: rgba(248, 247, 243, 0.8);
+  --glass-head: rgba(248, 247, 243, 0.94);
+  --glass-rim: rgba(255, 255, 255, 0.85);
+  --glass-shadow: 0 10px 30px rgba(30, 28, 22, 0.16), 0 1px 3px rgba(30, 28, 22, 0.08);
+  --glass-blur: blur(22px) saturate(180%);
+  --chrome: #f2f1ec;
+  --border: rgba(0, 0, 0, 0.09);
+  --text: #1d1d1f;
+  --dim: #6e6e73;
+  --accent: #b86e12;
+  --accent-soft: rgba(184, 110, 18, 0.12);
+  --accent-line: rgba(184, 110, 18, 0.4);
+  --on-accent: #fff;
+  --chip-bg: rgba(255, 255, 255, 0.55);
+  --press: rgba(0, 0, 0, 0.07);
+  --warn: #a8640a;
+  --danger: #d23b3b;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #131418;
+    --ink: #e9e6de;
+    --ink-dim: #b3afa6;
+    --ink-faint: #5d5a54;
+    --glass: rgba(40, 44, 54, 0.66);
+    --glass-strong: rgba(26, 28, 34, 0.78);
+    --glass-head: rgba(26, 28, 34, 0.94);
+    --glass-rim: rgba(255, 255, 255, 0.16);
+    --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.45), 0 1px 3px rgba(0, 0, 0, 0.3);
+    --chrome: #16191f;
+    --border: rgba(255, 255, 255, 0.1);
+    --text: #ece9e2;
+    --dim: #9aa0ab;
+    --accent: #e0a458;
+    --accent-soft: rgba(224, 164, 88, 0.14);
+    --accent-line: var(--accent-line);
+    --on-accent: #1a1408;
+    --chip-bg: rgba(255, 255, 255, 0.08);
+    --press: rgba(255, 255, 255, 0.12);
+    --warn: #f0b45e;
+    --danger: #ff6b6b;
+  }
+}
+
+/* The shared Liquid Glass material: frosted fill, specular top rim,
+   soft drop shadow. Applied to the floating bars and chips. */
+.glass {
+  background: var(--glass);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--border);
+  box-shadow: inset 0 1px 0 var(--glass-rim), inset 0 -1px 0 rgba(255, 255, 255, 0.06), var(--glass-shadow);
 }
 
 * {
@@ -30,16 +82,14 @@ body {
 /* ---------- top bar ---------- */
 #topbar {
   position: sticky;
-  top: 0;
+  top: calc(env(safe-area-inset-top) + 8px);
   z-index: 10;
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
-  background: var(--chrome-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-bottom: 1px solid var(--border);
+  margin: calc(env(safe-area-inset-top) + 8px) 10px 0;
+  padding: 7px 8px 7px 7px;
+  border-radius: 24px;
   color: var(--text);
 }
 
@@ -48,15 +98,16 @@ body {
   border: 1px solid var(--border);
   background: var(--chip-bg);
   color: var(--text);
-  border-radius: 10px;
+  border-radius: 17px;
   width: 38px;
   height: 34px;
+  box-shadow: inset 0 1px 0 var(--glass-rim);
   font-size: 17px;
   line-height: 1;
   padding: 0;
 }
 
-.topbtn:active { background: #2f3644; }
+.topbtn:active, .chip:active { background: var(--press); transform: scale(0.96); }
 
 .topbtn-count {
   width: auto;
@@ -102,13 +153,13 @@ body {
   border-radius: 4px;
 }
 
-.el.active { background: rgba(224, 164, 88, 0.12); }
+.el.active { background: var(--accent-soft); }
 
 .el-scene { text-transform: uppercase; font-weight: 700; margin-top: 1em; }
 .el-action { margin-top: 0.6em; }
 .el-character { text-transform: uppercase; margin: 1em 0 0 22%; }
 .el-dialogue { margin: 0 8% 0 12%; }
-.el-paren { margin: 0 20% 0 17%; color: #4a4a4a; }
+.el-paren { margin: 0 20% 0 17%; color: var(--ink-dim); }
 .el-transition { text-transform: uppercase; text-align: right; margin-top: 1em; }
 .el-marker { text-transform: uppercase; text-align: center; font-weight: 700; text-decoration: underline; margin: 1.4em 0 0.6em; letter-spacing: 0.05em; }
 
@@ -129,7 +180,7 @@ body {
   text-align: inherit;
 }
 
-#blockInput::placeholder { color: #b5b0a4; text-transform: none; }
+#blockInput::placeholder { color: var(--ink-faint); text-transform: none; }
 
 /* ---------- quick bar ---------- */
 #quickbar {
@@ -141,13 +192,14 @@ body {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
-  background: var(--chrome-glass);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border-top: 1px solid var(--border);
+  margin: 0 8px calc(8px + env(safe-area-inset-bottom));
+  padding: 6px;
+  border-radius: 26px;
   will-change: transform;
 }
+
+/* Keyboard up: hug the keyboard instead of clearing the home indicator. */
+#quickbar.kb-open { margin-bottom: 6px; }
 
 #chips {
   display: flex;
@@ -165,8 +217,10 @@ body {
   border: 1px solid var(--border);
   background: var(--chip-bg);
   color: var(--text);
-  border-radius: 16px;
+  border-radius: 18px;
   padding: 9px 14px;
+  box-shadow: inset 0 1px 0 var(--glass-rim);
+  transition: transform 0.12s ease, background 0.12s ease;
   font-size: 14px;
   font-weight: 600;
   font-family: inherit;
@@ -174,19 +228,17 @@ body {
   white-space: nowrap;
 }
 
-.chip:active { background: #2f3644; }
-
-.chip-char { color: var(--accent); border-color: rgba(224, 164, 88, 0.45); }
+.chip-char { color: var(--accent); border-color: var(--accent-line); }
 
 /* Autocomplete completion: leading chip that fills in a learned name. */
 .chip-suggest {
-  color: #1a1408;
+  color: var(--on-accent);
   background: var(--accent);
   border-color: var(--accent);
 }
 
 .chip-tool {
-  border-radius: 12px;
+  border-radius: 18px;
   padding: 9px 10px;
   color: var(--dim);
 }
@@ -200,9 +252,13 @@ body {
 /* ---------- sheets (settings + scripts + outline + export + profile) ---------- */
 #settingsSheet, #scriptsSheet, #outlineSheet, #exportSheet, #profileSheet {
   position: fixed;
-  inset: 0;
+  inset: calc(env(safe-area-inset-top) + 10px) 0 0;
   z-index: 30;
-  background: var(--chrome);
+  background: var(--glass-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-radius: 24px 24px 0 0;
+  box-shadow: inset 0 1px 0 var(--glass-rim), 0 -10px 40px rgba(0, 0, 0, 0.18);
   color: var(--text);
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
@@ -215,9 +271,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: calc(env(safe-area-inset-top) + 14px) 16px 12px;
-  background: var(--chrome-glass);
-  backdrop-filter: blur(12px);
+  z-index: 1;
+  padding: 16px 16px 12px;
+  background: var(--glass-head);
   border-bottom: 1px solid var(--border);
 }
 
@@ -258,7 +314,7 @@ body {
 
 .seg button[aria-pressed="true"] {
   background: var(--accent);
-  color: #1a1408;
+  color: var(--on-accent);
 }
 
 #manualLists section { margin-top: 22px; }
@@ -311,7 +367,7 @@ body {
 }
 
 #manualLists form button {
-  border: 1px solid rgba(224, 164, 88, 0.45);
+  border: 1px solid var(--accent-line);
   background: none;
   color: var(--accent);
   font-size: 15px;
@@ -323,9 +379,10 @@ body {
 /* ---------- scripts sheet ---------- */
 .btn-primary {
   display: block;
+  box-shadow: inset 0 1px 0 var(--glass-rim);
   width: 100%;
-  border: 1px solid rgba(224, 164, 88, 0.45);
-  background: rgba(224, 164, 88, 0.12);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
   color: var(--accent);
   font-size: 16px;
   font-weight: 700;
@@ -334,7 +391,7 @@ body {
   margin-bottom: 16px;
 }
 
-.btn-primary:active { background: rgba(224, 164, 88, 0.22); }
+.btn-primary:active { background: var(--press); }
 
 .btn-secondary {
   display: block;
@@ -349,7 +406,7 @@ body {
   margin-bottom: 16px;
 }
 
-.btn-secondary:active { background: #2f3644; }
+.btn-secondary:active { background: var(--press); }
 
 /* ---------- export sheet ---------- */
 .export-formats { display: flex; flex-direction: column; gap: 10px; }
@@ -370,7 +427,7 @@ body {
 
 .export-fmt b { font-size: 16px; }
 .export-fmt span { font-size: 13px; color: var(--dim); line-height: 1.4; }
-.export-fmt:active { background: #2f3644; }
+.export-fmt:active { background: var(--press); }
 .export-fmt:disabled { opacity: 0.45; }
 
 .script-list { list-style: none; margin: 0; padding: 0; }
@@ -386,7 +443,7 @@ body {
   overflow: hidden;
 }
 
-.script-row.current { border-color: rgba(224, 164, 88, 0.5); }
+.script-row.current { border-color: var(--accent-line); }
 
 .script-open {
   flex: 1;
@@ -424,7 +481,7 @@ body {
   border-radius: 8px;
 }
 
-.script-act.armed { color: #ff6b6b; font-weight: 700; font-size: 13px; }
+.script-act.armed { color: var(--danger); font-weight: 700; font-size: 13px; }
 
 .script-rename {
   flex: 1;
@@ -447,7 +504,7 @@ body {
 }
 
 .script-rename button {
-  border: 1px solid rgba(224, 164, 88, 0.45);
+  border: 1px solid var(--accent-line);
   background: none;
   color: var(--accent);
   font-size: 14px;
@@ -493,7 +550,7 @@ body {
   min-width: 1.4em;
 }
 
-.scene-jump:active { background: #2f3644; }
+.scene-jump:active { background: var(--press); }
 
 .scene-empty { color: var(--dim); font-size: 14px; }
 
@@ -511,7 +568,7 @@ body {
 }
 
 .act-row.act-total { font-weight: 700; }
-.act-row.warn { color: #f0b45e; border-color: rgba(240, 180, 94, 0.45); }
+.act-row.warn { color: var(--warn); border-color: var(--warn); }
 
 /* ---------- character profile (Personae Dramatis) ---------- */
 .profile-name {
@@ -599,4 +656,8 @@ body {
   white-space: nowrap;
 }
 
-.appearance-jump:active { background: #2f3644; }
+.appearance-jump:active { background: var(--press); }
+
+/* ---------- import & backup ---------- */
+.btn-row { display: flex; gap: 8px; }
+.btn-row .btn-secondary { flex: 1; margin-bottom: 10px; padding: 12px 6px; font-size: 14px; }
