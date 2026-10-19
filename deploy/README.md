@@ -62,7 +62,7 @@ cd /tmp
 sudo DEPLOY_DOMAIN=wordsmith.example.com DEPLOY_USER=ec2-user bash setup-server.sh
 ```
 
-This installs Caddy, creates `/var/www/wordsmith` (writable by `ubuntu`,
+This installs Caddy, creates `/var/www/wordsmith` (writable by your deploy user,
 readable by Caddy), installs the Caddyfile, and starts the service. Caddy
 gets the TLS cert automatically on the first HTTPS request.
 

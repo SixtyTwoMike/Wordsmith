@@ -472,6 +472,11 @@ test('exports a valid .docx (pure-JS ZIP) with the script text', async ({ page }
 });
 
 test('PDF export builds a print document with formatted screenplay', async ({ page }) => {
+  // Headless print() returns at once and fires afterprint, which removes the
+  // frame before we can read it; stub it out in every frame.
+  await page.addInitScript(() => {
+    window.print = () => {};
+  });
   await buildDinerScene(page);
   await openExport(page);
   await page.locator('.export-fmt[data-fmt="pdf"]').click();
