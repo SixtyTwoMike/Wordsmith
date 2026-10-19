@@ -6,6 +6,7 @@
 import * as editor from './editor.js';
 import { zipStore } from './zip.js';
 import { toPdfBlob } from './pdf.js';
+import { fountainNotes } from './review.js';
 
 /* ---------- Fountain generation ---------- */
 
@@ -72,11 +73,13 @@ export function toFountain(script) {
   const title = (script.title || '').trim();
   const paras = [];
 
-  const pushAction = (text) => {
+  // Open review comments ride along as inline [[notes]].
+  const n = (el) => fountainNotes(script, el);
+  const pushAction = (text, note = '') => {
     if (!text) return;
     // atDocStart matters only when there is no title page to terminate.
     const atDocStart = paras.length === 0 && !title && !hasTitlePage(script);
-    paras.push(actionNeedsForce(text, atDocStart) ? '!' + text : text);
+    paras.push((actionNeedsForce(text, atDocStart) ? '!' + text : text) + note);
   };
 
   for (let i = 0; i < els.length; i++) {
@@ -87,25 +90,25 @@ export function toFountain(script) {
       // A character cue plus its attached parentheticals and dialogue form
       // one contiguous block (no blank lines inside). Empty inner elements
       // are skipped so they can't split the cue from its dialogue.
-      const buf = text ? [up(text)] : [];
+      const buf = text ? [up(text) + n(el)] : [];
       let j = i + 1;
       while (j < els.length && (els[j].type === 'paren' || els[j].type === 'dialogue')) {
         const t = (els[j].text || '').trim();
-        if (t) buf.push(els[j].type === 'paren' ? '(' + stripParens(t) + ')' : t);
+        if (t) buf.push((els[j].type === 'paren' ? '(' + stripParens(t) + ')' : t) + n(els[j]));
         j++;
       }
       if (buf.length) paras.push(buf.join('\n'));
       i = j - 1;
     } else if (el.type === 'scene') {
-      if (text) paras.push(up(text));
+      if (text) paras.push(up(text) + n(el));
     } else if (el.type === 'transition') {
-      if (text) paras.push('> ' + up(text)); // force, so "FADE OUT." isn't read as action
+      if (text) paras.push('> ' + up(text) + n(el)); // force, so "FADE OUT." isn't read as action
     } else if (el.type === 'marker') {
-      if (text) paras.push('> ' + up(text) + ' <'); // Fountain centered text
+      if (text) paras.push('> ' + up(text) + n(el) + ' <'); // Fountain centered text
     } else if (el.type === 'paren') {
-      if (text) pushAction('(' + stripParens(text) + ')'); // orphaned parenthetical
+      if (text) pushAction('(' + stripParens(text) + ')', n(el)); // orphaned parenthetical
     } else {
-      pushAction(text); // action or orphaned dialogue
+      pushAction(text, n(el)); // action or orphaned dialogue
     }
   }
 

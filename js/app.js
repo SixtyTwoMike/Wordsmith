@@ -17,10 +17,12 @@ import * as characters from './characters.js';
 import * as profile from './profile.js';
 import * as snippet from './snippet.js';
 import * as prefs from './prefs.js';
+import * as review from './review.js';
 
 prefs.applyTheme();
 prefs.applyIcon();
 import { parseFountain } from './fountain.js';
+import { commentsFromNotes } from './review.js';
 import { toBackup, parseBackup, sameContent, backupFilename } from './backup.js';
 import { createScript, characterStatName, sceneLocation } from './model.js';
 
@@ -48,6 +50,7 @@ outline.init();
 exporter.init(() => scripts.syncMeta(editor.getScript()));
 profile.init();
 snippet.init();
+review.init(() => scripts.syncMeta(editor.getScript()));
 
 // Live page count in the header (1 page ≈ 1 minute of screen time).
 const pageCountEl = document.getElementById('pageCount');
@@ -89,6 +92,7 @@ async function importFountain(file) {
   const s = createScript(parsed.title || file.name.replace(/\.[^.]+$/, ''));
   s.elements = parsed.elements;
   if (Object.keys(parsed.titlePage).length) s.titlePage = parsed.titlePage;
+  if (parsed.notes.length) s.comments = commentsFromNotes(parsed.notes, s.elements);
   scripts.add(s);
   suggest.activateScript(s.id);
   for (const el of s.elements) {

@@ -2,8 +2,9 @@
 // Wordsmith's element model. Covers the parts of the spec that map onto
 // our element types — title page, scene headings, action, character cues,
 // parentheticals, dialogue, transitions and centered text (act markers).
-// Notes, boneyard, sections, synopses and page breaks have no equivalent
-// and are dropped.
+// [[Notes]] become review comments on the element they sit in (or the one
+// before, for a note on its own line). Boneyard, sections, synopses and
+// page breaks have no equivalent and are dropped.
 
 import { newElement } from './model.js';
 
@@ -42,15 +43,28 @@ function parseTitlePage(lines) {
   return { fields, rest: lines.slice(i) };
 }
 
-function stripMarkup(text) {
+// Notes are swapped for private-use placeholder tokens (no letters, so
+// they can't disturb all-caps cue detection) and collected separately.
+const NOTE_RE = /(\d+)/g;
+
+function stripMarkup(text, notes) {
   return text
     .replace(/\/\*[\s\S]*?\*\//g, '') // boneyard
-    .replace(/\[\[[\s\S]*?\]\]/g, ''); // notes
+    .replace(/\[\[([\s\S]*?)\]\]/g, (_, body) => {
+      notes.push(body.replace(/\s+/g, ' ').trim());
+      return '' + (notes.length - 1) + '';
+    });
 }
 
-// Returns { title, titlePage, elements }.
+// Returns { title, titlePage, elements, notes: [{ elId, text }] }.
 export function parseFountain(source) {
-  const text = stripMarkup(String(source || '').replace(/\r\n?/g, '\n').replace(/^﻿/, ''));
+  const noteTexts = [];
+  const text = stripMarkup(
+    String(source || '').replace(/\r\n?/g, '\n').replace(/^﻿/, ''),
+    noteTexts
+  );
+  const notes = [];
+  let pendingNotes = []; // notes seen before any element exists
   const { fields, rest } = parseTitlePage(text.split('\n'));
 
   let title = '';
@@ -78,8 +92,19 @@ export function parseFountain(source) {
 
   const elements = [];
   const push = (type, t) => {
-    t = t.trim();
-    if (t) elements.push(newElement(type, t));
+    const found = [...t.matchAll(NOTE_RE)].map((m) => noteTexts[Number(m[1])]).filter(Boolean);
+    t = t.replace(/[ \t]*\d+/g, '').replace(/[ \t]+$/gm, '').trim();
+    if (t) {
+      const el = newElement(type, t);
+      elements.push(el);
+      for (const n of [...pendingNotes, ...found]) notes.push({ elId: el.id, text: n });
+      pendingNotes = [];
+    } else if (found.length) {
+      // A note on its own line belongs to the element before it.
+      const prev = elements[elements.length - 1];
+      if (prev) for (const n of found) notes.push({ elId: prev.id, text: n });
+      else pendingNotes.push(...found);
+    }
   };
 
   for (const para of paras) {
@@ -146,5 +171,5 @@ export function parseFountain(source) {
   }
 
   if (!elements.length) elements.push(newElement('scene', ''));
-  return { title, titlePage, elements };
+  return { title, titlePage, elements, notes };
 }

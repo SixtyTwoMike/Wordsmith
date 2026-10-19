@@ -116,7 +116,14 @@ export function duplicate(id) {
   copy.title = (src.title || 'Untitled') + ' copy';
   copy.createdAt = Date.now();
   copy.updatedAt = Date.now();
-  copy.elements = copy.elements.map((el) => ({ ...el, id: uid() }));
+  const ids = new Map();
+  copy.elements = copy.elements.map((el) => {
+    const id = uid();
+    ids.set(el.id, id);
+    return { ...el, id };
+  });
+  // Keep review comments pinned to the copied lines.
+  copy.comments = (copy.comments || []).map((c) => ({ ...c, id: uid(), elId: ids.get(c.elId) || c.elId }));
   scripts[copy.id] = copy;
   index.scripts.push(meta(copy));
   index.current = copy.id;

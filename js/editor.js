@@ -26,6 +26,7 @@ let activeIndex = 0;
 let rendering = false;
 let applying = false;
 let persistCb = () => {};
+let noteCount = () => 0; // review comments per element (set by review.js)
 const listeners = [];
 const updateListeners = [];
 const history = createHistory(100);
@@ -77,6 +78,14 @@ function emitUpdate() {
   for (const fn of updateListeners) fn();
 }
 
+export function activeElement() {
+  return script.elements[activeIndex];
+}
+
+export function indexOfId(id) {
+  return script.elements.findIndex((el) => el.id === id);
+}
+
 export function activeText() {
   return script.elements[activeIndex]?.text ?? '';
 }
@@ -109,7 +118,37 @@ function blockDiv(el, i) {
   } else {
     div.textContent = display(el);
   }
+  syncPin(div, el);
   return div;
+}
+
+// A margin marker on lines with open review comments.
+function syncPin(div, el) {
+  const n = noteCount(el);
+  let pin = div.querySelector(':scope > .note-pin');
+  if (!n) {
+    if (pin) pin.remove();
+    return;
+  }
+  if (!pin) {
+    pin = document.createElement('span');
+    pin.className = 'note-pin';
+    div.insertBefore(pin, div.firstChild); // first child: level with the line's first row
+  }
+  pin.textContent = n;
+  pin.dataset.elId = el.id;
+  pin.setAttribute('aria-label', `${n} comment${n === 1 ? '' : 's'}`);
+}
+
+export function setNoteCounter(fn) {
+  noteCount = fn;
+}
+
+export function refreshPins() {
+  script.elements.forEach((el, i) => {
+    const div = pageEl.children[i];
+    if (div) syncPin(div, el);
+  });
 }
 
 function render(focus = true) {
@@ -134,6 +173,7 @@ function renderBlockText(i) {
   } else {
     div.textContent = display(el);
   }
+  syncPin(div, el);
 }
 
 function autogrow() {

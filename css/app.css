@@ -370,7 +370,7 @@ body.qb-top #page { padding-top: 112px; }
 .qb-fixed { display: flex; gap: 4px; }
 
 /* ---------- sheets (settings + scripts + outline + export + profile) ---------- */
-#settingsSheet, #scriptsSheet, #outlineSheet, #exportSheet, #profileSheet, #snippetSheet {
+#settingsSheet, #scriptsSheet, #outlineSheet, #exportSheet, #profileSheet, #snippetSheet, #reviewSheet {
   position: fixed;
   inset: calc(env(safe-area-inset-top) + 10px) 0 0;
   z-index: 30;
@@ -874,3 +874,125 @@ a.btn-secondary { text-align: center; text-decoration: none; }
 }
 
 .install-card ol { margin: 6px 0 0; padding-left: 20px; }
+
+/* ---------- review comments ---------- */
+.topbtn-review { position: relative; display: grid; place-items: center; }
+
+.badge {
+  position: absolute;
+  top: -5px;
+  right: -5px;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 18px;
+  text-align: center;
+}
+
+/* Margin marker on a line with open comments (tap to open its thread).
+   Positioned against #page with no top offset, so it keeps its static
+   vertical position — level with the first row of its line — while every
+   marker lines up in the right-hand gutter whatever the line's indent. */
+#page { position: relative; }
+
+.note-pin {
+  position: absolute;
+  right: 1px;
+  margin-top: 0.15em;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 4px;
+  border-radius: 9px 9px 9px 2px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: 800 11px/18px -apple-system, system-ui, sans-serif;
+  text-align: center;
+  text-transform: none;
+  text-decoration: none;
+  letter-spacing: 0;
+  cursor: pointer;
+}
+
+.rv-compose {
+  border: 1px solid var(--border);
+  background: var(--chip-bg);
+  border-radius: 14px;
+  padding: 12px;
+  margin-bottom: 16px;
+}
+
+.rv-on { margin: 0 0 8px; font-size: 13px; color: var(--dim); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rv-on span { color: var(--text); font-family: 'Courier Prime', 'Courier New', Courier, monospace; }
+
+.rv-compose textarea, .rv-replyform input {
+  width: 100%;
+  background: var(--paper);
+  color: var(--ink);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font: inherit;
+  font-size: 16px;
+  padding: 10px 12px;
+  outline: none;
+  resize: vertical;
+}
+
+.rv-compose .btn-primary { margin: 10px 0 0; padding: 11px; }
+
+.rv-focus { margin-top: 12px; }
+.rv-link { border: none; background: none; color: var(--accent); font: inherit; font-weight: 700; padding: 0; }
+
+.rv-list { list-style: none; margin: 14px 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
+
+.rv-thread {
+  border: 1px solid var(--border);
+  background: var(--chip-bg);
+  border-radius: 14px;
+  padding: 10px 12px;
+}
+
+.rv-thread.resolved { opacity: 0.62; }
+
+.rv-quote {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border: none;
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--text);
+  border-radius: 4px 8px 8px 4px;
+  padding: 6px 9px;
+  font-family: 'Courier Prime', 'Courier New', Courier, monospace;
+  font-size: 13px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.rv-entry { margin-top: 8px; }
+.rv-reply { margin-left: 14px; padding-left: 10px; border-left: 2px solid var(--border); }
+.rv-meta { font-size: 12px; color: var(--dim); }
+.rv-meta b { color: var(--text); }
+.rv-text { margin: 2px 0 0; font-size: 15px; line-height: 1.4; white-space: pre-wrap; }
+
+.rv-actions { display: flex; gap: 4px; margin-top: 8px; }
+.rv-act { border: none; background: none; color: var(--accent); font-size: 14px; font-weight: 700; padding: 6px 8px; border-radius: 8px; }
+.rv-act:active { background: var(--press); }
+.rv-del { color: var(--dim); margin-left: auto; }
+.rv-del.armed { color: var(--danger); }
+
+.rv-replyform { display: flex; gap: 8px; margin-top: 8px; }
+.rv-replyform button {
+  border: 1px solid var(--accent-line);
+  background: none;
+  color: var(--accent);
+  font-weight: 700;
+  border-radius: 10px;
+  padding: 0 14px;
+}

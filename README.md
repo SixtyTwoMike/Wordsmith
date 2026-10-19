@@ -61,6 +61,11 @@ to that character's next line. Prefer full control? Switch the quick bar to
 - **Home Screen app** — install steps in Settings, and a choice of five app
   icons (Classic, Paper, Glass, Midnight, Typewriter) picked before adding
   to the Home Screen
+- **Review comments** — pin comments to any line (a margin marker shows
+  where), reply, resolve/reopen and delete, filter Open/Resolved/All, and
+  tap a comment to jump to its line. Comments travel with backups and
+  duplicates, and round-trip through Fountain as `[[Name: note]]`, so a
+  reviewer can mark up the .fountain in Highland or Slugline and send it back
 - Auto-saves locally (localStorage); no account, no server
 - Installable PWA, works fully offline
 
@@ -116,5 +121,6 @@ dependency is `@playwright/test`.
 - `js/snippet.js` — Scene Snippet image, alt text and sharing
 - `js/settings.js` — theme, app icon and install help; learned/manual toggle and set-list editor
 - `js/prefs.js` — app-wide preferences (theme, icon, reviewer name)
+- `js/review.js` — review comments, the Review sheet and Fountain note round trip
 - `js/store.js` — debounced localStorage autosave + v1→v2 migration
 - `sw.js`, `manifest.webmanifest` — offline app shell + install metadata

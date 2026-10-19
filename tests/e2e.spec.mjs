@@ -6,9 +6,10 @@ async function getBlocks(page) {
     els.map((div) => {
       const type = [...div.classList].find((c) => c.startsWith('el-')).slice(3);
       const ta = div.querySelector('textarea');
+      const pin = div.querySelector('.note-pin');
       return {
         type,
-        text: ta ? ta.value : div.textContent,
+        text: ta ? ta.value : div.textContent.slice(pin ? pin.textContent.length : 0),
         active: div.classList.contains('active'),
       };
     })
@@ -988,4 +989,97 @@ test('choosing an app icon points the Home Screen icon and manifest at it', asyn
   await page.waitForTimeout(500);
   await page.reload();
   expect(await page.locator('link[rel="apple-touch-icon"]').getAttribute('href')).toBe('icons/icon-glass-180.png');
+});
+
+test('review comments: add, pin, reply, resolve, delete', async ({ page }) => {
+  await buildDinerScene(page);
+  await page.locator('#page .el').nth(1).click(); // the action line
+  await expect(page.locator('#reviewCount')).toBeHidden();
+
+  await page.locator('#openReview').click();
+  await page.locator('#reviewerName').fill('Jo');
+  await expect(page.locator('#composeQuote')).toHaveText('Action: “Sarah wipes the counter.”');
+  await page.locator('#newComment').fill('Show, don’t tell — what is she avoiding?');
+  await page.locator('#addComment').click();
+
+  const thread = page.locator('.rv-thread').first();
+  await expect(thread.locator('.rv-meta b')).toHaveText('Jo');
+  await expect(thread.locator('.rv-text')).toHaveText('Show, don’t tell — what is she avoiding?');
+  await expect(page.locator('#reviewCount')).toHaveText('1');
+
+  // Reply.
+  await thread.getByRole('button', { name: 'Reply' }).click();
+  await thread.getByLabel('Reply').fill('Agreed.');
+  await thread.getByRole('button', { name: 'Send' }).click();
+  await expect(page.locator('.rv-thread .rv-reply .rv-text')).toHaveText('Agreed.');
+
+  // The line shows a margin pin; tapping it opens just that thread.
+  await page.locator('#closeReview').click();
+  const pin = page.locator('#page .el').nth(1).locator('.note-pin');
+  await expect(pin).toHaveText('1');
+  await pin.dispatchEvent('pointerdown');
+  await expect(page.locator('#reviewSheet')).toBeVisible();
+  await expect(page.locator('#focusNote')).toBeVisible();
+  await expect(page.locator('.rv-thread')).toHaveCount(1);
+
+  // Comments survive a reload (stored with the script).
+  await page.waitForTimeout(600);
+  await page.reload();
+  await expect(page.locator('#reviewCount')).toHaveText('1');
+
+  // Resolve hides it from Open and clears the pin; Delete removes it.
+  await page.locator('#openReview').click();
+  await page.locator('.rv-thread').getByRole('button', { name: 'Resolve' }).click();
+  await expect(page.locator('.rv-thread')).toHaveCount(0);
+  await expect(page.locator('#reviewCount')).toBeHidden();
+  await page.locator('#reviewFilter button[data-filter="resolved"]').click();
+  await expect(page.locator('.rv-thread.resolved')).toHaveCount(1);
+  const del = page.locator('.rv-thread').getByRole('button', { name: 'Delete' });
+  await del.click();
+  await page.locator('.rv-thread').getByRole('button', { name: 'Delete?' }).click();
+  await expect(page.locator('.rv-thread')).toHaveCount(0);
+  await page.locator('#closeReview').click();
+  await expect(page.locator('#page .note-pin')).toHaveCount(0);
+});
+
+test('comments round-trip through Fountain notes and survive duplicate', async ({ page }) => {
+  await buildDinerScene(page);
+  await page.locator('#page .el').nth(3).click(); // dialogue "We open at six."
+  await page.locator('#openReview').click();
+  await page.locator('#reviewerName').fill('Sam');
+  await page.locator('#newComment').fill('Too early?');
+  await page.locator('#addComment').click();
+  await page.locator('#closeReview').click();
+
+  const [download] = await Promise.all([
+    page.waitForEvent('download'),
+    (async () => {
+      await openExport(page);
+      await page.locator('.export-fmt[data-fmt="fountain"]').click();
+    })(),
+  ]);
+  const text = fs.readFileSync(await download.path(), 'utf8');
+  expect(text).toContain('SARAH\nWe open at six. [[Sam: Too early?]]');
+
+  // Re-import: the note comes back as a comment on the same line.
+  await page.locator('#closeExport').click();
+  await page.locator('#openScripts').click();
+  const [chooser] = await Promise.all([
+    page.waitForEvent('filechooser'),
+    page.locator('#importBtn').click(),
+  ]);
+  await chooser.setFiles({ name: 'night.fountain', mimeType: 'text/plain', buffer: Buffer.from(text) });
+  await expect(page.locator('#reviewCount')).toHaveText('1');
+  const blocks = await getBlocks(page);
+  expect(blocks[3]).toMatchObject({ type: 'dialogue', text: 'We open at six.' });
+  await expect(page.locator('#page .el').nth(3).locator('.note-pin')).toHaveText('1');
+  await page.locator('#openReview').click();
+  await expect(page.locator('.rv-thread .rv-meta b')).toHaveText('Sam');
+  await expect(page.locator('.rv-thread .rv-text')).toHaveText('Too early?');
+  await page.locator('#closeReview').click();
+
+  // Duplicating keeps comments pinned to the copied lines.
+  await page.locator('#openScripts').click();
+  await page.locator('.script-row.current button[aria-label^="Duplicate"]').click();
+  await expect(page.locator('#page .el').nth(3).locator('.note-pin')).toHaveText('1');
 });
