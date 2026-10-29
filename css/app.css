@@ -320,6 +320,17 @@ body {
 
 .qb-chips::-webkit-scrollbar { display: none; }
 
+/* Soften whichever edge has more chips beyond it, instead of a hard cut
+   against the fixed buttons. quickbar.js toggles the classes on scroll. */
+.qb-chips {
+  --fade-start: 0px;
+  --fade-end: 0px;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--fade-start), #000 calc(100% - var(--fade-end)), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 var(--fade-start), #000 calc(100% - var(--fade-end)), transparent);
+}
+.qb-chips.fade-start { --fade-start: 20px; }
+.qb-chips.fade-end { --fade-end: 32px; }
+
 .qb-empty { color: var(--dim); font-size: 13px; padding: 0 8px; align-self: center; white-space: nowrap; }
 
 /* Keyboard can't be detected (e.g. the app is embedded in another page's

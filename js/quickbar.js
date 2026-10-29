@@ -37,12 +37,24 @@ export function init() {
     else if (chip === redoBtn) editor.redo();
     // the settings button keeps its normal click handler (keyboard may drop)
   });
+  const fades = new ResizeObserver((entries) => entries.forEach((e) => syncFades(e.target)));
+  for (const row of [chipsEl, charChipsEl]) {
+    row.addEventListener('scroll', () => syncFades(row), { passive: true });
+    fades.observe(row);
+  }
   editor.onActiveChange(refresh);
   // Update the inline completion chip and undo/redo enabled state on every edit.
   editor.onUpdate(() => {
     refreshCompletion();
     syncUndoRedo();
   });
+}
+
+// Fade a chip row's edges only where there's more to scroll to.
+function syncFades(row) {
+  const max = row.scrollWidth - row.clientWidth;
+  row.classList.toggle('fade-start', row.scrollLeft > 1);
+  row.classList.toggle('fade-end', row.scrollLeft < max - 1);
 }
 
 function syncUndoRedo() {
@@ -254,7 +266,11 @@ function refreshCompletion() {
     chip.remove();
     chip = null;
   }
-  if (!c) return;
+  if (!c) {
+    syncFades(chipsEl);
+    syncFades(charChipsEl);
+    return;
+  }
   if (!chip) {
     chip = document.createElement('button');
     chip.className = 'chip chip-suggest';
@@ -263,6 +279,7 @@ function refreshCompletion() {
   chip.textContent = c.full;
   chip.setAttribute('aria-label', 'Complete ' + c.full);
   chip._act = c.apply;
+  syncFades(row);
 }
 
 export function refresh() {
