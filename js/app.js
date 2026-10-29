@@ -22,6 +22,7 @@ import * as review from './review.js';
 prefs.applyTheme();
 prefs.applyIcon();
 import { parseFountain } from './fountain.js';
+import { importPdf } from './pdfimport.js';
 import { commentsFromNotes } from './review.js';
 import { toBackup, parseBackup, sameContent, backupFilename } from './backup.js';
 import { createScript, characterStatName, sceneLocation } from './model.js';
@@ -84,15 +85,17 @@ function showScript(s) {
   updateHeader();
 }
 
-// Import a .fountain file as a new script, and teach the chips its
-// characters, locations and transitions so they're one tap away at once.
-async function importFountain(file) {
-  const parsed = parseFountain(await file.text());
+// Import a .fountain or .pdf screenplay as a new script, and teach the
+// chips its characters, locations and transitions so they're one tap away.
+async function importScript(file) {
+  const isPdf = /\.pdf$/i.test(file.name) || file.type === 'application/pdf';
+  const parsed = isPdf ? await importPdf(await file.arrayBuffer()) : parseFountain(await file.text());
+  if (!parsed.elements.length) throw new Error('Couldn’t find any screenplay text in that file.');
   editor.commitActive();
   const s = createScript(parsed.title || file.name.replace(/\.[^.]+$/, ''));
   s.elements = parsed.elements;
   if (Object.keys(parsed.titlePage).length) s.titlePage = parsed.titlePage;
-  if (parsed.notes.length) s.comments = commentsFromNotes(parsed.notes, s.elements);
+  if (parsed.notes && parsed.notes.length) s.comments = commentsFromNotes(parsed.notes, s.elements);
   scripts.add(s);
   suggest.activateScript(s.id);
   for (const el of s.elements) {
@@ -142,7 +145,7 @@ switcher.init({
   },
   onRename: (id, title) => scripts.rename(id, title),
   onExport: () => exporter.open(),
-  onImport: importFountain,
+  onImport: importScript,
   onRestore: restoreBackup,
   onBackup: () => {
     editor.commitActive();

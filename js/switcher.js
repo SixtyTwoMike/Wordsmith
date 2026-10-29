@@ -34,14 +34,14 @@ function build() {
       <ul id="scriptList" class="script-list"></ul>
       <h3 class="profile-sub">Import &amp; backup</h3>
       <div class="btn-row">
-        <button id="importBtn" class="btn-secondary">Import Fountain</button>
+        <button id="importBtn" class="btn-secondary">Import Fountain or PDF</button>
         <button id="backupBtn" class="btn-secondary">Back up all</button>
         <button id="restoreBtn" class="btn-secondary">Restore</button>
       </div>
       <p id="fileStatus" class="hint" role="status"></p>
       <p class="hint">Scripts live only on this device. Back up now and then —
         Safari can clear site data for apps you haven’t opened in a while.</p>
-      <input id="importFile" type="file" accept=".fountain,.txt,text/plain" hidden>
+      <input id="importFile" type="file" accept=".fountain,.txt,.pdf,text/plain,application/pdf" hidden>
       <input id="restoreFile" type="file" accept=".json,application/json" hidden>
     </div>`;
   sheet.querySelector('#closeScripts').addEventListener('click', close);

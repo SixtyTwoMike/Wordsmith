@@ -36,7 +36,7 @@ EOF
 fi
 
 rm -rf .staging && mkdir .staging
-cp -r index.html sw.js manifest*.webmanifest css js icons .staging/
+cp -r index.html sw.js manifest*.webmanifest css js icons vendor .staging/
 rsync -az --delete -e "${SSH[*]}" .staging/ "$REMOTE:$WS_ROOT/"
 rm -rf .staging
 

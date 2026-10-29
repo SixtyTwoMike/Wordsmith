@@ -1083,3 +1083,117 @@ test('comments round-trip through Fountain notes and survive duplicate', async (
   await page.locator('.script-row.current button[aria-label^="Duplicate"]').click();
   await expect(page.locator('#page .el').nth(3).locator('.note-pin')).toHaveText('1');
 });
+
+// A script exported to PDF by Wordsmith itself, with a title page, an act
+// marker and a speech long enough to split across pages with (MORE).
+async function exportedPdf(page) {
+  return page.evaluate(async () => {
+    const { toPdf } = await import('/js/pdf.js');
+    const el = (type, text) => ({ id: Math.random().toString(36), type, text });
+    const filler = Array.from({ length: 16 }, (_, i) => el('action', `Beat ${i + 1}.`));
+    const speech =
+      'This is a long speech that goes on and on, line after line, so that it ' +
+      'has to break across the bottom of the page and carry on overleaf, where ' +
+      'the reader picks it up again under the same name with a continued mark ' +
+      'and keeps right on reading until it finally, mercifully, comes to an end.';
+    const script = {
+      title: 'Paper Trail',
+      titlePage: { author: 'Jo Writer', contact: 'jo@example.com', draftDate: 'First Draft' },
+      elements: [
+        el('marker', 'COLD OPEN'),
+        el('scene', 'INT. ARCHIVE - NIGHT'),
+        el('action', 'Rows of boxes stretch into the dark. A single lamp burns over a desk where somebody has left a half-finished crossword.'),
+        el('character', 'MARA (V.O.)'),
+        el('paren', 'whispering'),
+        el('dialogue', 'Nobody comes down here.'),
+        el('transition', 'CUT TO:'),
+        el('scene', 'EXT. ROOF - CONTINUOUS'),
+        ...filler,
+        el('character', 'ODE'),
+        el('dialogue', speech),
+        el('action', 'Silence.'),
+      ],
+    };
+    const pdf = toPdf(script);
+    return { bytes: Array.from(pdf, (c) => c.charCodeAt(0)), more: pdf.includes('MORE'), speech };
+  });
+}
+
+test('imports a PDF screenplay back into editable elements', async ({ page }) => {
+  await page.goto('/');
+  const { bytes, more, speech } = await exportedPdf(page);
+  expect(more).toBe(true); // the speech really did split across pages
+
+  await page.locator('#openScripts').click();
+  const [chooser] = await Promise.all([page.waitForEvent('filechooser'), page.locator('#importBtn').click()]);
+  await chooser.setFiles({ name: 'paper-trail.pdf', mimeType: 'application/pdf', buffer: Buffer.from(bytes) });
+
+  await expect(page.locator('#scriptsSheet')).toBeHidden();
+  await expect(page.locator('#title')).toHaveValue('PAPER TRAIL');
+  const blocks = (await getBlocks(page)).map((b) => [b.type, b.text]);
+  expect(blocks.slice(0, 8)).toEqual([
+    ['marker', 'COLD OPEN'],
+    ['scene', 'INT. ARCHIVE - NIGHT'],
+    ['action', 'Rows of boxes stretch into the dark. A single lamp burns over a desk where somebody has left a half-finished crossword.'],
+    ['character', 'MARA (V.O.)'],
+    ['paren', '(whispering)'],
+    ['dialogue', 'Nobody comes down here.'],
+    ['transition', 'CUT TO:'],
+    ['scene', 'EXT. ROOF - CONTINUOUS'],
+  ]);
+  expect(blocks.slice(8, 24)).toEqual(Array.from({ length: 16 }, (_, i) => ['action', `Beat ${i + 1}.`]));
+  // The split speech is one element again: no (MORE), no second cue.
+  expect(blocks.slice(24)).toEqual([
+    ['character', 'ODE'],
+    ['dialogue', speech],
+    ['action', 'Silence.'],
+  ]);
+
+  await openExport(page);
+  await expect(page.locator('#titlePageFields [data-field="author"]')).toHaveValue('Jo Writer');
+  await expect(page.locator('#titlePageFields [data-field="contact"]')).toHaveValue('jo@example.com');
+});
+
+test('PDF import drops scene numbers, page numbers and CONTINUED headers', async ({ page }) => {
+  await page.goto('/');
+  const parsed = await page.evaluate(async () => {
+    const { parsePdf } = await import('/js/pdfimport.js');
+    // A Final Draft-style page: 1.5" margin, 12pt leading, numbers both sides.
+    let y = 720;
+    const items = [];
+    const line = (x, text, gap = 1) => {
+      y -= 12 * gap;
+      items.push({ x, y, w: text.length * 7.2, text });
+    };
+    items.push({ x: 518, y: 750, w: 21.6, text: '2.' });
+    line(108, 'CONTINUED:', 0);
+    line(75, '12');
+    items.push({ x: 108, y, w: 180, text: 'INT. KITCHEN - DAY' });
+    items.push({ x: 540, y, w: 14.4, text: '12' });
+    line(108, 'Toast burns.', 2);
+    line(266, 'LEN', 2);
+    line(180, 'Who did that?');
+    line(475, 'FADE OUT.', 2);
+    return parsePdf([{ width: 612, height: 792, items }]);
+  });
+  expect(parsed.elements.map((e) => [e.type, e.text])).toEqual([
+    ['scene', 'INT. KITCHEN - DAY'],
+    ['action', 'Toast burns.'],
+    ['character', 'LEN'],
+    ['dialogue', 'Who did that?'],
+    ['transition', 'FADE OUT.'],
+  ]);
+});
+
+test('a scanned PDF with no text explains why it can’t be imported', async ({ page }) => {
+  await page.goto('/');
+  const message = await page.evaluate(async () => {
+    const { parsePdf } = await import('/js/pdfimport.js');
+    try {
+      parsePdf([{ width: 612, height: 792, items: [] }]);
+    } catch (e) {
+      return e.message;
+    }
+  });
+  expect(message).toMatch(/scan/);
+});

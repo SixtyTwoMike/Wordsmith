@@ -51,6 +51,12 @@ to that character's next line. Prefer full control? Switch the quick bar to
 - **Fountain import** — open a `.fountain` file from Files (Highland, Slugline,
   Final Draft exports) as a new script; its characters and locations become
   chips straight away
+- **PDF import** — open a screenplay PDF (Final Draft, Highland, WriterDuet,
+  Fade In or Wordsmith's own) and get editable elements back: each line is
+  classified by its indent, page/scene numbers, (MORE) and CONTINUED are
+  dropped, and speeches split across pages are rejoined. Uses a vendored
+  pdf.js (Apache-2.0), loaded only when a PDF is imported and cached for
+  offline use. Scanned PDFs (no text layer) are refused with an explanation
 - **Title page** — written by, based on, draft date and contact, included in
   every export
 - **Backup & restore** — one JSON file holding every script with its learned
