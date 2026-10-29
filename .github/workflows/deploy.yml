@@ -4,18 +4,9 @@ name: Deploy to Lightsail
 # Caddy on the instance serves the files and provisions HTTPS automatically.
 # See deploy/README.md for the one-time server + secrets setup.
 
+# Manual only: the live site deploys from a Mac via deploy/deploy.sh, so the
+# server's SSH key stays out of GitHub. Kept for a future CI-driven setup.
 on:
-  push:
-    branches: [claude/iphone-screenwriting-app-moihhx]
-    paths:
-      - 'index.html'
-      - 'sw.js'
-      - 'manifest.webmanifest'
-      - 'css/**'
-      - 'js/**'
-      - 'icons/**'
-      - 'deploy/**'
-      - '.github/workflows/deploy.yml'
   workflow_dispatch: {}
 
 concurrency:
@@ -60,7 +51,7 @@ jobs:
         run: |
           rm -rf staging
           mkdir -p staging
-          cp -r index.html sw.js manifest.webmanifest css js icons staging/
+          cp -r index.html sw.js manifest*.webmanifest css js icons staging/
 
       - name: Rsync static assets to the instance
         env:

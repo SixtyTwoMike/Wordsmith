@@ -1,5 +1,20 @@
 # Deploying Wordsmith to AWS Lightsail
 
+**Live:** https://wordsmith.sixtytwo.online, served by Caddy on the shared
+`sixty-two` Lightsail box. Deploy from your Mac:
+
+```sh
+deploy/deploy.sh          # rsync the static assets + health check
+deploy/deploy.sh --setup  # one-time: web root + Caddy site block (between
+                          # "# BEGIN/END wordsmith" markers), then deploy
+```
+
+The target lives in a gitignored `.deploy.env` (`WS_HOST`, `WS_USER`,
+`WS_KEY`, `WS_DOMAIN`). The GitHub Action below is now manual-only; the
+rest of this guide describes that alternative CI route.
+
+---
+
 Wordsmith is a static PWA (no backend, no build). This sets up **automatic
 deploys**: every push to `claude/iphone-screenwriting-app-moihhx` runs a
 GitHub Action that `rsync`s the files to your Lightsail instance, where
