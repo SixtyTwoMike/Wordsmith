@@ -234,6 +234,26 @@ if (vv) {
   placeQuickbar();
 }
 
+// Desktop niceties. Esc closes the open sheet (the last one opened on top
+// of another sits later in the DOM), and icon buttons get tooltips.
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Escape') return;
+  const open = [...document.querySelectorAll('[id$="Sheet"]:not([hidden])')].pop();
+  const done = open && open.querySelector('.btn-done');
+  if (done) {
+    e.preventDefault();
+    done.click();
+  }
+});
+if (!touch) {
+  for (const b of document.querySelectorAll('button[aria-label]:not([title])')) b.title = b.getAttribute('aria-label');
+  const mac = /Mac/.test(navigator.platform);
+  const mod = mac ? '⌘' : 'Ctrl+';
+  document.getElementById('cycleType').title = `Change element type (Tab, or ${mod}1–7)`;
+  document.getElementById('undoBtn').title = `Undo (${mod}Z)`;
+  document.getElementById('redoBtn').title = mac ? 'Redo (⇧⌘Z)' : 'Redo (Ctrl+Y)';
+}
+
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }

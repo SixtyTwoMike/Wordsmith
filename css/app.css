@@ -1007,3 +1007,61 @@ a.btn-secondary { text-align: center; text-decoration: none; }
   border-radius: 10px;
   padding: 0 14px;
 }
+
+/* ---------- web / desktop ---------- */
+
+/* Wide windows: the script sits on a page about as wide as a printed one
+   (60 columns of Courier plus margins) instead of stretching edge to edge,
+   with the bars matched to it and sheets as centred panels. */
+@media (min-width: 760px) {
+  :root { --col: 780px; }
+
+  #topbar {
+    max-width: var(--col);
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  #page {
+    max-width: var(--col);
+    min-height: calc(100vh - 230px);
+    margin: 20px auto 150px;
+    padding: 32px 64px 96px;
+    background: var(--chip-bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    box-shadow: var(--glass-shadow);
+  }
+
+  #quickbar {
+    width: min(var(--col), calc(100% - 16px));
+    margin-left: auto;
+    margin-right: auto;
+  }
+
+  #settingsSheet, #scriptsSheet, #outlineSheet, #exportSheet, #profileSheet, #snippetSheet, #reviewSheet {
+    inset: 6vh 0 auto;
+    width: min(620px, calc(100% - 32px));
+    max-height: 88vh;
+    margin: 0 auto;
+    border-radius: 24px;
+    padding-bottom: 16px;
+    /* The last shadow is a spread-only scrim that dims the page behind. */
+    box-shadow: inset 0 1px 0 var(--glass-rim), 0 24px 80px rgba(0, 0, 0, 0.28), 0 0 0 100vmax rgba(0, 0, 0, 0.22);
+  }
+}
+
+/* Mouse and trackpad: hover feedback and pointer cursors. The overlay
+   shadow darkens whatever background a control already has. */
+@media (hover: hover) and (pointer: fine) {
+  button:not(:disabled), .script-row, .export-fmt { cursor: pointer; }
+  .chip:not(:disabled):hover,
+  .topbtn:hover,
+  .btn-secondary:hover,
+  .btn-primary:hover,
+  .export-fmt:hover {
+    box-shadow: inset 0 0 0 100vmax var(--press);
+  }
+  .btn-done:hover { opacity: 0.75; }
+  .el:not(.active):hover { background: var(--press); }
+}

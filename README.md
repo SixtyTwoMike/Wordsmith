@@ -62,6 +62,14 @@ to that character's next line. Prefer full control? Switch the quick bar to
 - **Backup & restore** — one JSON file holding every script with its learned
   chips and character profiles; restoring merges and never overwrites
 - **Liquid Glass look** — floating translucent bars and sheets
+- **Web / desktop** — on wider windows the script sits on a centred,
+  page-width column with matching bars and sheets as centred panels (Esc
+  closes them). Keyboard: Enter/Tab flow as on iPhone, ⌘/Ctrl+1–7 set the
+  element type (Scene, Action, Character, Parenthetical, Dialogue,
+  Transition, Act marker — Final Draft's numbering), ⌘Z / ⇧⌘Z (Ctrl+Y)
+  undo and redo across blocks. Mouse: hover states and tooltips, the
+  wheel scrolls chip rows, right-click a character for its profile.
+  Exports download instead of opening the share sheet
 - **Themes** — Auto (follows the system light/dark setting), Paper, Night,
   Sepia, Midnight and High contrast (solid surfaces, no translucency)
 - **Home Screen app** — install steps in Settings, and a choice of five app

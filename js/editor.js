@@ -307,7 +307,35 @@ function onInput() {
   }
 }
 
+// Cmd/Ctrl+1–7 set the element type, as in Final Draft. Matched on e.code
+// so Option (which changes e.key on a Mac) also works where the browser
+// keeps Cmd+number for itself.
+const TYPE_KEYS = {
+  Digit1: 'scene',
+  Digit2: 'action',
+  Digit3: 'character',
+  Digit4: 'paren',
+  Digit5: 'dialogue',
+  Digit6: 'transition',
+  Digit7: 'marker',
+};
+
 function onKeydown(e) {
+  const mod = e.metaKey || e.ctrlKey;
+  if (mod && TYPE_KEYS[e.code]) {
+    e.preventDefault();
+    setActiveType(TYPE_KEYS[e.code]);
+    return;
+  }
+  // Undo/redo go through the script history (which spans blocks), not
+  // the textarea's own, which only knows the line being edited.
+  const k = e.key.toLowerCase();
+  if (mod && !e.altKey && (k === 'z' || k === 'y')) {
+    e.preventDefault();
+    if (k === 'y' || e.shiftKey) redo();
+    else undo();
+    return;
+  }
   if (e.key === 'Enter') {
     e.preventDefault();
     handleEnter();

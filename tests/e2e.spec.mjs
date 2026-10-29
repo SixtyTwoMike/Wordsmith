@@ -1197,3 +1197,72 @@ test('a scanned PDF with no text explains why it can’t be imported', async ({ 
   });
   expect(message).toMatch(/scan/);
 });
+
+test.describe('web / desktop', () => {
+  test.use({ viewport: { width: 1280, height: 800 }, isMobile: false, hasTouch: false });
+
+  test('the script sits on a centred, page-width column', async ({ page }) => {
+    await page.goto('/');
+    const pageBox = await page.locator('#page').boundingBox();
+    const barBox = await page.locator('#quickbar').boundingBox();
+    expect(pageBox.width).toBeLessThanOrEqual(780);
+    expect(Math.abs(pageBox.x + pageBox.width / 2 - 640)).toBeLessThan(2);
+    expect(Math.abs(barBox.width - pageBox.width)).toBeLessThan(2);
+    await page.locator('#openScripts').click();
+    const sheet = await page.locator('#scriptsSheet').boundingBox();
+    expect(sheet.width).toBeLessThanOrEqual(620);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#scriptsSheet')).toBeHidden();
+  });
+
+  test('keyboard: Cmd+number sets the type, Cmd+Z undoes across blocks', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('#page .el').first().click();
+    await page.keyboard.type('INT. DINER - NIGHT');
+    await page.keyboard.press('Enter'); // -> character
+    await page.keyboard.type('Sarah');
+    await page.keyboard.press('Enter'); // -> dialogue
+    await page.keyboard.type('Hi.');
+    await page.keyboard.press('Enter'); // -> action
+    await page.keyboard.type('She waves');
+    await page.keyboard.press('ControlOrMeta+Digit6'); // -> transition
+    let blocks = await getBlocks(page);
+    expect(blocks[blocks.length - 1].type).toBe('transition');
+    await page.keyboard.press('ControlOrMeta+Digit2'); // back to action
+
+    await page.waitForTimeout(600); // let the edit checkpoint settle
+    await page.keyboard.press('ControlOrMeta+z');
+    await page.keyboard.press('ControlOrMeta+z');
+    blocks = await getBlocks(page);
+    expect(blocks.map((b) => b.text)).not.toContain('She waves');
+    await page.keyboard.press('ControlOrMeta+Shift+z');
+    await page.keyboard.press('ControlOrMeta+Shift+z');
+    blocks = await getBlocks(page);
+    expect(blocks[blocks.length - 1]).toMatchObject({ type: 'action', text: 'She waves' });
+  });
+
+  test('mouse: wheel scrolls a chip row, right-click opens a character', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('#page .el').first().click();
+    await page.keyboard.type('INT. DINER - NIGHT');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Sarah');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Hi.');
+    await page.keyboard.press('Enter');
+
+    await page.setViewportSize({ width: 800, height: 800 }); // narrow enough to overflow
+    const row = page.locator('#chips');
+    const overflow = await row.evaluate((r) => r.scrollWidth > r.clientWidth);
+    if (overflow) {
+      await row.hover();
+      await page.mouse.wheel(0, 120);
+      await expect.poll(() => row.evaluate((r) => r.scrollLeft)).toBeGreaterThan(0);
+    }
+
+    await page.locator('#charChips .chip-char', { hasText: 'SARAH' }).click({ button: 'right' });
+    await expect(page.locator('#profileSheet')).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#profileSheet')).toBeHidden();
+  });
+});

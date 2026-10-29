@@ -41,7 +41,20 @@ export function init() {
   for (const row of [chipsEl, charChipsEl]) {
     row.addEventListener('scroll', () => syncFades(row), { passive: true });
     fades.observe(row);
+    // A mouse wheel only scrolls vertically; turn it sideways here.
+    row.addEventListener('wheel', (e) => {
+      if (Math.abs(e.deltaY) <= Math.abs(e.deltaX) || row.scrollWidth <= row.clientWidth) return;
+      e.preventDefault();
+      row.scrollLeft += e.deltaY;
+    });
   }
+  // Right-click is the mouse's long-press.
+  charChipsEl.addEventListener('contextmenu', (e) => {
+    const chip = e.target.closest('button.chip-char');
+    if (!chip) return;
+    e.preventDefault();
+    profile.open(chip.textContent);
+  });
   editor.onActiveChange(refresh);
   // Update the inline completion chip and undo/redo enabled state on every edit.
   editor.onUpdate(() => {
