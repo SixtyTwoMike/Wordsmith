@@ -1319,19 +1319,27 @@ test.describe('web / desktop', () => {
     const tl = page.locator('#timeline');
     await expect(tl).toBeVisible();
     expect(await tl.locator('.tl-page').count()).toBeGreaterThanOrEqual(4);
-    await expect(tl.locator('.tl-mark')).toHaveText(['ACT ONE', 'DINER', 'ROOF', 'CAR']);
+    // Labels: the place, then the scene's opening action.
+    await expect(tl.locator('.tl-mark')).toHaveText(['ACT ONE', 'DINERDiner beat 1.', 'ROOFRoof beat 1.', 'CARCar beat 1.'] /* ' · ' is CSS */);
+    // Hovering shows the full heading, page and description.
+    await tl.locator('.tl-mark', { hasText: 'ROOF' }).hover();
+    await expect(tl.locator('.tl-card')).toBeVisible();
+    await expect(tl.locator('.tl-card')).toContainText('EXT. ROOF - NIGHT');
+    await expect(tl.locator('.tl-card')).toContainText('Roof beat 1.');
+    await page.mouse.move(700, 400);
+    await expect(tl.locator('.tl-card')).toBeHidden();
     await expect(tl.locator('.tl-readout')).toHaveText('1');
 
     // Click a scene: the script scrolls there and the needle follows.
     await tl.locator('.tl-mark', { hasText: 'CAR' }).click();
-    await expect(tl.locator('.tl-mark.tl-current')).toHaveText('CAR');
-    const carPage = await tl.locator('.tl-mark', { hasText: 'CAR' }).getAttribute('title');
-    await expect(tl.locator('.tl-readout')).toHaveText(carPage.match(/p\. (\d+)/)[1]);
+    await expect(tl.locator('.tl-mark.tl-current')).toContainText('CAR');
+    const carPage = await tl.locator('.tl-mark', { hasText: 'CAR' }).getAttribute('aria-label');
+    await expect(tl.locator('.tl-readout')).toHaveText(carPage.match(/page (\d+)/)[1]);
     await expect(page.locator('#page .el.active textarea')).toHaveValue(/INT\. CAR - DAWN/i);
 
     // ⌥↑ goes back a scene.
     await page.keyboard.press('Alt+ArrowUp');
-    await expect(tl.locator('.tl-mark.tl-current')).toHaveText('ROOF');
+    await expect(tl.locator('.tl-mark.tl-current')).toContainText('ROOF');
 
     // Narrow windows hide it.
     await page.setViewportSize({ width: 900, height: 800 });

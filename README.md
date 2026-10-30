@@ -73,7 +73,9 @@ to that character's next line. Prefer full control? Switch the quick bar to
 - **Timeline dial** (wide desktop windows) — a ruler down the left of the
   page: page ticks with numbers, half/quarter-page ticks, scene and act
   marks, sliding past a fixed needle as you scroll. Drag to scrub, click a
-  scene to jump, ⌥↑/⌥↓ for the previous/next scene. Pages match the PDF
+  scene to jump, ⌥↑/⌥↓ for the previous/next scene. Scene labels show the
+  place and the opening action; hover for the full heading, page, more of
+  the description and who's in it. Pages match the PDF
   export, as does the header page count
 - **Keyboard character picks** — Option/Alt+1–9 picks a character from
   the character row (hold Option to see the numbers); on a character line,

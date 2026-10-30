@@ -1097,8 +1097,10 @@ body.show-char-keys .chip-char[data-key]::before {
   position: fixed;
   top: 92px;
   bottom: 124px;
-  left: max(12px, calc((100vw - var(--col, 780px)) / 2 - 232px));
-  width: 200px;
+  /* As wide as the gutter allows (200–320px), ending 24px short of the page. */
+  --tl-w: clamp(200px, calc((100vw - var(--col, 780px)) / 2 - 48px), 320px);
+  left: max(12px, calc((100vw - var(--col, 780px)) / 2 - 24px - var(--tl-w)));
+  width: var(--tl-w);
   z-index: 5;
   user-select: none;
   -webkit-user-select: none;
@@ -1150,8 +1152,6 @@ body.show-char-keys .chip-char[data-key]::before {
   background: none;
   color: var(--dim);
   font: 600 10.5px/13px -apple-system, system-ui, sans-serif;
-  letter-spacing: 0.02em;
-  text-transform: uppercase;
   text-align: left;
   white-space: nowrap;
   overflow: hidden;
@@ -1171,12 +1171,16 @@ body.show-char-keys .chip-char[data-key]::before {
 }
 /* The needle runs behind the scale; the current label gets the paper
    colour so the line stops at it rather than striking it through. */
+.tl-mark b { font-weight: 700; letter-spacing: 0.02em; text-transform: uppercase; }
+.tl-mark span { font-weight: 500; color: var(--ink-faint); }
+.tl-mark span::before { content: ' · '; }
 .tl-mark:hover, .tl-mark.tl-current { color: var(--text); }
+.tl-mark:hover span, .tl-mark.tl-current span { color: var(--dim); }
 .tl-mark.tl-current { background: var(--paper); }
 .tl-mark.tl-current::before { background: var(--accent); width: 10px; }
-.tl-mark.tl-crowded { color: transparent; }
+.tl-mark.tl-crowded, .tl-mark.tl-crowded span { color: transparent; }
 .tl-mark.tl-crowded:hover { color: var(--text); background: var(--paper); z-index: 1; }
-.tl-mark.tl-act { color: var(--accent); font-weight: 800; letter-spacing: 0.08em; transform: translateY(-135%); }
+.tl-mark.tl-act { color: var(--accent); font-weight: 800; letter-spacing: 0.08em; text-transform: uppercase; transform: translateY(-135%); }
 .tl-mark.tl-act::before { background: var(--accent); width: 10px; height: 2px; }
 .tl-needle {
   position: absolute;
@@ -1202,3 +1206,28 @@ body.show-char-keys .chip-char[data-key]::before {
   font-variant-numeric: tabular-nums;
   text-align: center;
 }
+
+/* Hover card: the longer story of a scene, floating just right of the
+   ruler (over the page margin) so the labels below stay readable. */
+.tl-card {
+  position: absolute;
+  left: calc(100% + 8px);
+  z-index: 12;
+  width: 300px;
+  padding: 11px 14px 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--glass-strong);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  box-shadow: inset 0 1px 0 var(--glass-rim), var(--glass-shadow);
+  color: var(--text);
+  font: 13px/1.4 -apple-system, system-ui, sans-serif;
+  pointer-events: none;
+}
+.tl-card[hidden] { display: none; }
+.tl-card-head { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+.tl-card-head b { font-size: 12px; letter-spacing: 0.03em; text-transform: uppercase; }
+.tl-card-head span { flex: none; color: var(--accent); font-weight: 700; font-size: 12px; font-variant-numeric: tabular-nums; }
+.tl-card p { margin: 6px 0 0; color: var(--ink-dim); }
+.tl-card-cast { margin-top: 8px; color: var(--accent); font-size: 11px; font-weight: 700; letter-spacing: 0.04em; }

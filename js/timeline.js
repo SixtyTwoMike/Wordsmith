@@ -6,6 +6,7 @@
 // "page 12" here is page 12 of the exported script.
 
 import * as editor from './editor.js';
+import { characterStatName } from './model.js';
 import { layoutLines } from './layout.js';
 import { paginate, LINES_PER_PAGE } from './pdf.js';
 
@@ -29,7 +30,8 @@ export function init() {
       <div class="tl-needle"></div>
       <div class="tl-scale"></div>
       <span class="tl-readout"></span>
-    </div>`;
+    </div>
+    <div class="tl-card" hidden></div>`;
   scale = root.querySelector('.tl-scale');
   readout = root.querySelector('.tl-readout');
   wide = window.matchMedia('(min-width: 1180px) and (hover: hover) and (pointer: fine)');
@@ -48,6 +50,7 @@ export function init() {
     const mark = e.target.closest('.tl-mark');
     if (mark) jumpTo(Number(mark.dataset.i));
   });
+  wireCard();
   editor.onKey(onKey);
   document.addEventListener('keydown', (e) => {
     if (!e.target.closest('input, textarea, select') && onKey(e)) e.preventDefault();
@@ -108,10 +111,14 @@ function rebuild() {
     // the scene that opens the act.
     const crowded = !act && y - lastY < LABEL_GAP;
     if (!crowded && !act) lastY = y;
-    marks.push({ i, pos: positions[i], act });
+    const info = act ? { heading: text, desc: '', cast: [] } : summary(els, i);
+    marks.push({ i, pos: positions[i], act, info });
+    const label = act
+      ? escapeHtml(text)
+      : `<b>${escapeHtml(place(text))}</b>${info.desc ? `<span>${escapeHtml(info.desc)}</span>` : ''}`;
     parts.push(
       `<button class="tl-mark${act ? ' tl-act' : ''}${crowded ? ' tl-crowded' : ''}" data-i="${i}" ` +
-        `style="top:${y}px" title="${escapeHtml(text)} — p. ${Math.floor(positions[i]) + 1}">${escapeHtml(short(text))}</button>`
+        `style="top:${y}px" aria-label="${escapeHtml(text)}, page ${Math.floor(positions[i]) + 1}">${label}</button>`
     );
   });
   scale.style.height = pages * PX_PER_PAGE + 'px';
@@ -120,8 +127,27 @@ function rebuild() {
   sync();
 }
 
+// What a scene is: its opening action (the description under the
+// heading) and who speaks in it, up to the next scene or act marker.
+function summary(els, i) {
+  let desc = '';
+  const cast = [];
+  for (let k = i + 1; k < els.length; k++) {
+    const el = els[k];
+    if (el.type === 'scene' || el.type === 'marker') break;
+    const t = (el.text || '').trim();
+    if (!t) continue;
+    if (!desc && el.type === 'action') desc = t.replace(/\s+/g, ' ');
+    if (el.type === 'character') {
+      const name = characterStatName(t);
+      if (name && !cast.includes(name)) cast.push(name);
+    }
+  }
+  return { heading: els[i].text.trim(), desc, cast };
+}
+
 // "INT. DINER - NIGHT" -> "DINER", keeping the label to the place.
-function short(text) {
+function place(text) {
   return text
     .replace(/^(INT\.?\/EXT|I\/E|INT|EXT|EST)[.\s]*/i, '')
     .replace(/\s*-\s*(DAY|NIGHT|MORNING|EVENING|DAWN|DUSK|LATER|CONTINUOUS)\s*$/i, '')
@@ -210,6 +236,32 @@ function sync() {
   let here = null;
   for (const m of marks) if (!m.act && m.pos <= current + 0.005) here = m;
   for (const m of marks) m.node.classList.toggle('tl-current', m === here);
+}
+
+// Hover a scene for the longer story: full heading, page, more of the
+// description and who's in it.
+function wireCard() {
+  const card = root.querySelector('.tl-card');
+  scale.addEventListener('pointerover', (e) => {
+    const node = e.target.closest('.tl-mark');
+    const m = node && marks.find((x) => x.node === node);
+    if (!m || m.act) {
+      card.hidden = true;
+      return;
+    }
+    const { heading, desc, cast } = m.info;
+    const more = desc.length > 220 ? desc.slice(0, 220).replace(/\s+\S*$/, '') + '…' : desc;
+    card.innerHTML =
+      `<div class="tl-card-head"><b>${escapeHtml(heading)}</b><span>p. ${Math.floor(m.pos) + 1}</span></div>` +
+      (more ? `<p>${escapeHtml(more)}</p>` : '') +
+      (cast.length ? `<div class="tl-card-cast">${cast.map(escapeHtml).join(' · ')}</div>` : '');
+    card.hidden = false;
+    const r = node.getBoundingClientRect();
+    const top = r.top + r.height / 2 - root.getBoundingClientRect().top;
+    card.style.top = Math.max(0, Math.min(root.clientHeight - card.offsetHeight, top - card.offsetHeight / 2)) + 'px';
+  });
+  scale.addEventListener('pointerleave', () => (card.hidden = true));
+  window.addEventListener('scroll', () => (card.hidden = true), { passive: true });
 }
 
 function wireDrag() {
