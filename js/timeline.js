@@ -1,9 +1,16 @@
-// Desktop timeline: a ruler-style dial down the left of the page. The
+// Timeline: a ruler-style dial down the left of the page. The
 // scale — a long tick per page, half and quarter ticks between, scene and
 // act marks beside — slides past a fixed needle as the script scrolls.
 // Drag it to scrub, click a scene to jump there, ⌥↑/⌥↓ for the previous
 // or next scene. Pages come from the PDF export's own pagination, so
 // "page 12" here is page 12 of the exported script.
+//
+// Wide desktop windows show it beside the page. Everywhere else (iPhone,
+// narrow windows) it's a drawer behind a pull-tab on the left edge. The
+// tab opens on a tap; dragging it open is only enabled in the installed
+// Home Screen app, because in Safari a swipe from the screen edge is the
+// browser's own Back gesture. The drawer closes with a swipe left inside
+// it (well clear of the edge), a tap on the dimmed page, a jump, or Esc.
 
 import * as editor from './editor.js';
 import { characterStatName } from './model.js';
@@ -22,6 +29,14 @@ let pages = 1;
 let marks = []; // { i, pos, node }
 let current = 0;
 let timer = null;
+let drawerOpen = false;
+let handle;
+let scrim;
+let suppressClick = false;
+
+const standalone = () =>
+  window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+const isDrawer = () => !wide.matches;
 
 export function init() {
   root = document.getElementById('timeline');
@@ -35,6 +50,7 @@ export function init() {
   scale = root.querySelector('.tl-scale');
   readout = root.querySelector('.tl-readout');
   wide = window.matchMedia('(min-width: 1180px) and (hover: hover) and (pointer: fine)');
+  wireDrawer();
 
   const rebuildSoon = () => {
     clearTimeout(timer);
@@ -47,19 +63,25 @@ export function init() {
   window.addEventListener('scroll', sync, { passive: true });
   wireDrag();
   scale.addEventListener('click', (e) => {
+    if (suppressClick) return; // the tap ended a drag
     const mark = e.target.closest('.tl-mark');
     if (mark) jumpTo(Number(mark.dataset.i));
   });
   wireCard();
   editor.onKey(onKey);
   document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && drawerOpen) {
+      closeDrawer();
+      e.preventDefault();
+      return;
+    }
     if (!e.target.closest('input, textarea, select') && onKey(e)) e.preventDefault();
   });
   rebuild();
 }
 
 function onKey(e) {
-  if (!e.altKey || e.metaKey || e.ctrlKey || root.hidden) return false;
+  if (!e.altKey || e.metaKey || e.ctrlKey || root.hidden || (isDrawer() && !drawerOpen)) return false;
   if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return false;
   const scenes = marks.filter((m) => !m.act);
   const target =
@@ -91,8 +113,12 @@ function measure() {
 }
 
 function rebuild() {
-  root.hidden = !wide.matches;
-  if (root.hidden) return;
+  const drawer = isDrawer();
+  root.classList.toggle('tl-drawer', drawer);
+  root.hidden = false;
+  handle.hidden = !drawer;
+  if (!drawer && drawerOpen) closeDrawer();
+  if (drawer && !drawerOpen) return; // measured when it opens
   measure();
   const els = editor.getScript().elements;
   const parts = [`<div class="tl-ticks" style="height:${pages * PX_PER_PAGE}px"></div>`];
@@ -219,17 +245,63 @@ function scrollToPos(pos) {
 }
 
 function jumpTo(i) {
+  if (drawerOpen) closeDrawer();
   editor.activate(i);
   scrollToPos(positions[i]);
   sync();
 }
 
+/* ---------- drawer (iPhone and narrow windows) ---------- */
+
+function wireDrawer() {
+  handle = document.createElement('button');
+  handle.id = 'tlHandle';
+  handle.setAttribute('aria-label', 'Timeline');
+  handle.hidden = true;
+  scrim = document.createElement('div');
+  scrim.id = 'tlScrim';
+  document.body.append(handle, scrim);
+
+  handle.addEventListener('click', openDrawer);
+  scrim.addEventListener('click', closeDrawer);
+  // Drag the tab open — installed app only (no Back gesture to collide with).
+  let startX = null;
+  handle.addEventListener('pointerdown', (e) => {
+    startX = standalone() ? e.clientX : null;
+  });
+  handle.addEventListener('pointermove', (e) => {
+    if (startX !== null && e.clientX - startX > 24) {
+      startX = null;
+      openDrawer();
+    }
+  });
+}
+
+function openDrawer() {
+  if (drawerOpen) return;
+  drawerOpen = true;
+  // Drop the keyboard so the dial gets the whole screen.
+  if (document.activeElement && document.activeElement.blur) document.activeElement.blur();
+  rebuild();
+  scrim.classList.add('on');
+  handle.classList.add('tl-handle-off');
+  requestAnimationFrame(() => root.classList.add('tl-open'));
+}
+
+function closeDrawer() {
+  if (!drawerOpen) return;
+  drawerOpen = false;
+  root.classList.remove('tl-open');
+  scrim.classList.remove('on');
+  handle.classList.remove('tl-handle-off');
+}
+
 /* ---------- drawing ---------- */
 
 function sync() {
-  if (root.hidden || !positions.length) return;
+  if (root.hidden || !positions.length || (isDrawer() && !drawerOpen)) return;
   current = posFromScroll();
-  const mid = root.clientHeight / 2;
+  const mid = scale.parentElement.clientHeight / 2;
   scale.style.transform = `translateY(${(mid - current * PX_PER_PAGE).toFixed(1)}px)`;
   readout.textContent = `${Math.min(pages, Math.floor(current) + 1)}`;
   readout.title = `Page ${Math.min(pages, Math.floor(current) + 1)} of ${pages}`;
@@ -243,6 +315,7 @@ function sync() {
 function wireCard() {
   const card = root.querySelector('.tl-card');
   scale.addEventListener('pointerover', (e) => {
+    if (e.pointerType !== 'mouse' || isDrawer()) return; // touch shows the label itself
     const node = e.target.closest('.tl-mark');
     const m = node && marks.find((x) => x.node === node);
     if (!m || m.act) {
@@ -266,33 +339,51 @@ function wireCard() {
 
 function wireDrag() {
   const win = root.querySelector('.tl-window');
-  let startY = 0;
-  let startPos = 0;
-  let moved = false;
+  // Tracked by hand rather than with pointer capture from the start:
+  // capturing on pointerdown would retarget the tap's click away from the
+  // scene label. Capture is taken only once the gesture becomes a drag.
+  let track = null; // { id, x, y, pos, moved }
   win.addEventListener('pointerdown', (e) => {
-    if (e.button !== 0 || e.target.closest('.tl-mark')) return;
-    startY = e.clientY;
-    startPos = current;
-    moved = false;
-    win.setPointerCapture(e.pointerId);
-    win.classList.add('tl-dragging');
+    if (e.button !== 0) return;
+    // Mouse clicks on a label are plain clicks; touch drags may start on one.
+    if (e.pointerType === 'mouse' && e.target.closest('.tl-mark')) return;
+    suppressClick = false;
+    track = { id: e.pointerId, x: e.clientX, y: e.clientY, pos: current, moved: false };
   });
   win.addEventListener('pointermove', (e) => {
-    if (!win.hasPointerCapture(e.pointerId)) return;
-    const dy = e.clientY - startY;
-    if (Math.abs(dy) > 3) moved = true;
-    if (moved) scrollToPos(startPos - dy / PX_PER_PAGE);
+    if (!track || e.pointerId !== track.id) return;
+    const dx = e.clientX - track.x;
+    const dy = e.clientY - track.y;
+    // A clear swipe left inside the drawer closes it.
+    if (drawerOpen && dx < -50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+      track = null;
+      suppressClick = true;
+      win.classList.remove('tl-dragging');
+      closeDrawer();
+      return;
+    }
+    if (!track.moved && Math.abs(dy) > 6) {
+      track.moved = true;
+      suppressClick = true;
+      win.classList.add('tl-dragging');
+      try {
+        win.setPointerCapture(e.pointerId);
+      } catch (err) {
+        /* the pointer may already be gone */
+      }
+    }
+    if (track.moved) scrollToPos(track.pos - dy / PX_PER_PAGE);
   });
   const end = (e) => {
-    if (!win.hasPointerCapture(e.pointerId)) return;
-    if (e.type === 'pointercancel') moved = true;
-    win.releasePointerCapture(e.pointerId);
+    if (!track || e.pointerId !== track.id) return;
+    const { moved } = track;
+    track = null;
     win.classList.remove('tl-dragging');
-    // A click on the ruler (no drag) jumps to that spot.
-    if (!moved) {
-      const r = win.getBoundingClientRect();
-      scrollToPos(current + (e.clientY - (r.top + r.height / 2)) / PX_PER_PAGE);
-    }
+    if (e.type === 'pointercancel' || moved) return;
+    if (e.target.closest('.tl-mark')) return; // the label's click jumps
+    // A tap on the ruler itself jumps to that spot.
+    const r = win.getBoundingClientRect();
+    scrollToPos(current + (e.clientY - (r.top + r.height / 2)) / PX_PER_PAGE);
   };
   win.addEventListener('pointerup', end);
   win.addEventListener('pointercancel', end);

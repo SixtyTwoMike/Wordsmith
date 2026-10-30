@@ -77,6 +77,11 @@ to that character's next line. Prefer full control? Switch the quick bar to
   place and the opening action; hover for the full heading, page, more of
   the description and who's in it. Pages match the PDF
   export, as does the header page count
+- **Timeline on iPhone** — the same dial in a drawer behind a pull-tab on
+  the left edge: tap the tab to open it (dragging it open works in the
+  installed Home Screen app; in Safari an edge swipe is the browser's Back
+  gesture, so it's left alone), drag the dial to scrub, tap a scene to
+  jump, and swipe left or tap the page to close
 - **Keyboard character picks** — Option/Alt+1–9 picks a character from
   the character row (hold Option to see the numbers); on a character line,
   type a few letters and Enter accepts the suggested name and moves to

@@ -1198,6 +1198,53 @@ test('a scanned PDF with no text explains why it can’t be imported', async ({ 
   expect(message).toMatch(/scan/);
 });
 
+test('iPhone: the timeline is a drawer behind a pull-tab', async ({ page }) => {
+  await page.addInitScript(() => {
+    if (sessionStorage.getItem('seeded')) return;
+    sessionStorage.setItem('seeded', '1');
+    const el = (type, text) => ({ id: Math.random().toString(36).slice(2), type, text });
+    const beats = (n, w) => Array.from({ length: n }, (_, i) => el('action', `${w} beat ${i + 1}.`));
+    const els = [el('scene', 'INT. DINER - NIGHT'), ...beats(40, 'Diner'), el('scene', 'EXT. ROOF - NIGHT'), ...beats(40, 'Roof')];
+    localStorage.setItem('wordsmith.scripts.v1', JSON.stringify({ d: { id: 'd', title: 'Drawer', createdAt: 1, updatedAt: 1, elements: els } }));
+    localStorage.setItem('wordsmith.scriptIndex.v1', JSON.stringify({ current: 'd', scripts: [{ id: 'd', title: 'Drawer', createdAt: 1, updatedAt: 1 }] }));
+  });
+  await page.goto('/');
+  const tl = page.locator('#timeline');
+  const handle = page.locator('#tlHandle');
+  await expect(handle).toBeVisible();
+  await expect(tl).toBeHidden();
+
+  // Dragging the tab does nothing in Safari (that's Safari's Back gesture);
+  // only a tap opens it.
+  await handle.dispatchEvent('pointerdown', { pointerType: 'touch', clientX: 8, clientY: 400 });
+  await handle.dispatchEvent('pointermove', { pointerType: 'touch', clientX: 80, clientY: 400 });
+  await expect(tl).toBeHidden();
+
+  await handle.tap();
+  await expect(tl).toBeVisible();
+  await expect(tl.locator('.tl-mark')).toHaveCount(2);
+  await expect(page.locator('#tlScrim')).toHaveClass(/on/);
+
+  // Tapping a scene jumps there and closes the drawer.
+  await tl.locator('.tl-mark', { hasText: 'ROOF' }).tap();
+  await expect(tl).toBeHidden();
+  await expect(page.locator('#page .el.active textarea')).toHaveValue('EXT. ROOF - NIGHT');
+
+  // The dimmed page closes it.
+  await handle.tap();
+  await expect(tl).toBeVisible();
+  await page.locator('#tlScrim').tap({ position: { x: 360, y: 300 } });
+  await expect(tl).toBeHidden();
+
+  // So does a swipe left inside the drawer.
+  await handle.tap();
+  await expect(tl).toBeVisible();
+  const win = tl.locator('.tl-window');
+  await win.dispatchEvent('pointerdown', { pointerType: 'touch', pointerId: 7, button: 0, clientX: 200, clientY: 400 });
+  await win.dispatchEvent('pointermove', { pointerType: 'touch', pointerId: 7, clientX: 120, clientY: 405 });
+  await expect(tl).toBeHidden();
+});
+
 test.describe('web / desktop', () => {
   test.use({ viewport: { width: 1280, height: 800 }, isMobile: false, hasTouch: false });
 
