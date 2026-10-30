@@ -102,6 +102,10 @@ export function learnedTop(category, limit = 8) {
 }
 
 // Prefix match over learned names for autocomplete (Phase 2).
+export function isKnown(category, name) {
+  return Object.hasOwn(stats[category] || {}, (name || '').trim().toUpperCase());
+}
+
 export function prefixMatch(category, prefix, limit = 1) {
   prefix = (prefix || '').trim().toUpperCase();
   if (!prefix) return [];

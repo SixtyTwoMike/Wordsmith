@@ -8,7 +8,7 @@
 import * as editor from './editor.js';
 import * as profile from './profile.js';
 import { TYPE_LABELS, characterStatName, sceneLocation } from './model.js';
-import { topItems, DEFAULT_TRANSITIONS, getSettings, prefixMatch } from './suggest.js';
+import { topItems, DEFAULT_TRANSITIONS, getSettings, prefixMatch, isKnown } from './suggest.js';
 
 let chipsEl;
 let charChipsEl;
@@ -55,6 +55,12 @@ export function init() {
     e.preventDefault();
     profile.open(chip.textContent);
   });
+  editor.onKey(onKey);
+  // Holding Option/Alt shows each character chip's number.
+  const showKeys = (on) => document.body.classList.toggle('show-char-keys', on);
+  document.addEventListener('keydown', (e) => showKeys(e.key === 'Alt' || (e.altKey && !e.metaKey && !e.ctrlKey)));
+  document.addEventListener('keyup', (e) => e.key === 'Alt' && showKeys(false));
+  window.addEventListener('blur', () => showKeys(false));
   editor.onActiveChange(refresh);
   // Update the inline completion chip and undo/redo enabled state on every edit.
   editor.onUpdate(() => {
@@ -252,6 +258,37 @@ function buildChips(type) {
 
 /* ---------- autocomplete completion chip ---------- */
 
+// Keyboard picks for characters (desktop):
+//  - Option/Alt+1–9 acts like tapping that chip in the character row.
+//  - On a character line, Enter accepts the suggested name and moves to
+//    its dialogue (Final Draft's SmartType); Esc dismisses the suggestion.
+//    A name that's already known as typed is kept, so ALICE never
+//    swallows AL.
+let dismissed = null; // text the writer dismissed a suggestion for
+
+function onKey(e) {
+  if (e.altKey && !e.metaKey && !e.ctrlKey && /^Digit[1-9]$/.test(e.code)) {
+    const chip = charChipsEl.querySelectorAll('.chip-char')[Number(e.code.slice(5)) - 1];
+    if (chip) chip._act();
+    return true; // never type the Option-symbol either way
+  }
+  if (editor.activeType() !== 'character') return false;
+  const text = editor.activeText() || '';
+  if (e.key === 'Escape' && document.querySelector('#quickbar .chip-suggest')) {
+    dismissed = text;
+    refreshCompletion();
+    return true;
+  }
+  if (e.key === 'Enter' && !e.shiftKey) {
+    const c = currentCompletion();
+    if (!c || isKnown('characters', characterStatName(text))) return false;
+    const cue = (text.match(CUE_RE) || [''])[0];
+    editor.setCharacterAndDialogue(c.full + cue);
+    return true;
+  }
+  return false;
+}
+
 // The single leading chip that completes a learned name from the prefix
 // the writer is typing (character names, or the location in a scene
 // heading). Null when there is nothing to complete.
@@ -259,6 +296,7 @@ function currentCompletion() {
   const type = editor.activeType();
   const text = editor.activeText() || '';
   if (type === 'character') {
+    if (text === dismissed) return null;
     const match = prefixMatch('characters', characterStatName(text), 1)[0];
     if (match) return { full: match, apply: () => editor.updateActiveText(() => match) };
   } else if (type === 'scene') {
@@ -302,6 +340,10 @@ export function refresh() {
   chipsEl.replaceChildren(...toButtons(buildChips(type)));
   const chars = toButtons(buildCharacterChips(type));
   if (chars.length) {
+    chars.slice(0, 9).forEach((b, i) => {
+      b.dataset.key = i + 1;
+      b.title = `${b.textContent} (${/Mac/.test(navigator.platform) ? '⌥' : 'Alt+'}${i + 1})`;
+    });
     charChipsEl.replaceChildren(...chars);
   } else {
     const empty = document.createElement('span');

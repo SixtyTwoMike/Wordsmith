@@ -66,6 +66,13 @@ export function onActiveChange(fn) {
 
 // Fired on every edit (text or structure). Used for the live page count
 // and the autocomplete completion chip.
+// Keydown handlers that run before the editor's own; one that returns
+// true has handled the key (the quick bar's completion and character keys).
+const keyHandlers = [];
+export function onKey(fn) {
+  keyHandlers.push(fn);
+}
+
 export function onUpdate(fn) {
   updateListeners.push(fn);
 }
@@ -321,6 +328,10 @@ const TYPE_KEYS = {
 };
 
 function onKeydown(e) {
+  if (keyHandlers.some((fn) => fn(e))) {
+    e.preventDefault();
+    return;
+  }
   const mod = e.metaKey || e.ctrlKey;
   if (mod && TYPE_KEYS[e.code]) {
     e.preventDefault();

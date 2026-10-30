@@ -1065,3 +1065,23 @@ a.btn-secondary { text-align: center; text-decoration: none; }
   .btn-done:hover { opacity: 0.75; }
   .el:not(.active):hover { background: var(--press); }
 }
+
+/* Keyboard character picks: holding Option/Alt numbers the character
+   chips (Option+1–9), and the suggested name shows Enter accepts it. */
+/* Inline, since the scrolling row clips anything outside a chip. */
+body.show-char-keys .chip-char[data-key]::before {
+  content: attr(data-key);
+  display: inline-block;
+  min-width: 16px;
+  height: 16px;
+  margin-right: 6px;
+  border-radius: 8px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: 800 10px/16px -apple-system, system-ui, sans-serif;
+  text-align: center;
+  vertical-align: 1px;
+}
+@media (hover: hover) and (pointer: fine) {
+  .chip-suggest::after { content: ' ↵'; opacity: 0.55; font-weight: 600; }
+}

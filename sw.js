@@ -1,7 +1,7 @@
 // Cache-first app-shell service worker. All user data lives in
 // localStorage, so caching the shell makes the whole app work offline.
 
-const CACHE = 'wordsmith-v17';
+const CACHE = 'wordsmith-v18';
 const ASSETS = [
   './',
   'index.html',

@@ -1241,6 +1241,60 @@ test.describe('web / desktop', () => {
     expect(blocks[blocks.length - 1]).toMatchObject({ type: 'action', text: 'She waves' });
   });
 
+  test('keyboard character picks: Option+number, and Enter accepts a suggestion', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('#page .el').first().click();
+    await page.keyboard.type('INT. DINER - NIGHT');
+    await page.keyboard.press('Enter'); // scene -> character
+    for (const [name, line] of [['Sarah', 'Hi.'], ['Al', 'Hey.'], ['Alice', 'Yo.']]) {
+      await page.keyboard.press('ControlOrMeta+Digit3'); // character
+      await page.keyboard.type(name);
+      await page.keyboard.press('Enter'); // -> dialogue
+      await page.keyboard.type(line);
+      await page.keyboard.press('Enter'); // dialogue -> action
+    }
+
+    // Holding Option numbers the chips; Option+n acts like tapping chip n.
+    await page.keyboard.down('Alt');
+    await expect(page.locator('body')).toHaveClass(/show-char-keys/);
+    const names = await charChipTexts(page);
+    await page.keyboard.press('Digit2');
+    await page.keyboard.up('Alt');
+    await expect(page.locator('body')).not.toHaveClass(/show-char-keys/);
+    let blocks = await getBlocks(page);
+    expect(blocks.slice(-2).map((b) => [b.type, b.text])).toEqual([['character', names[1]], ['dialogue', '']]);
+    await page.keyboard.type('Picked.');
+
+    // SmartType: "SA" + Enter completes to SARAH and lands in her dialogue.
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('ControlOrMeta+Digit3'); // character
+    await page.keyboard.type('Sa');
+    await page.keyboard.press('Enter');
+    blocks = await getBlocks(page);
+    expect(blocks.slice(-2).map((b) => [b.type, b.text])).toEqual([['character', 'SARAH'], ['dialogue', '']]);
+
+    // A name that's known as typed is kept: AL stays AL, not ALICE.
+    await page.keyboard.type('Ok.');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('ControlOrMeta+Digit3');
+    await page.keyboard.type('Al');
+    await page.keyboard.press('Enter');
+    blocks = await getBlocks(page);
+    expect(blocks.slice(-2).map((b) => [b.type, b.text])).toEqual([['character', 'AL'], ['dialogue', '']]);
+
+    // Esc dismisses the suggestion, so Enter keeps what was typed.
+    await page.keyboard.type('Fine.');
+    await page.keyboard.press('Enter');
+    await page.keyboard.press('ControlOrMeta+Digit3');
+    await page.keyboard.type('Sa');
+    await expect(page.locator('#quickbar .chip-suggest')).toHaveText(/SARAH/);
+    await page.keyboard.press('Escape');
+    await expect(page.locator('#quickbar .chip-suggest')).toHaveCount(0);
+    await page.keyboard.press('Enter');
+    blocks = await getBlocks(page);
+    expect(blocks.slice(-2).map((b) => [b.type, b.text])).toEqual([['character', 'SA'], ['dialogue', '']]);
+  });
+
   test('mouse: wheel scrolls a chip row, right-click opens a character', async ({ page }) => {
     await page.goto('/');
     await page.locator('#page .el').first().click();
