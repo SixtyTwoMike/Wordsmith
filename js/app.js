@@ -268,15 +268,25 @@ document.addEventListener('visibilitychange', () => document.visibilityState ===
 
 if ('serviceWorker' in navigator) {
   // A new version's worker takes over in the background (skipWaiting +
-  // claim) while this page still runs the old code. Reload once onto it,
-  // saving first, so one reload is enough to pick up an update.
+  // claim) while this page still runs the old code. Move onto it with one
+  // reload — straight away if the writer hasn't touched the page yet (so
+  // one reload picks up an update), otherwise the next time the app is
+  // hidden, never under someone's hands mid-sentence.
   const hadController = !!navigator.serviceWorker.controller;
-  let reloading = false;
-  navigator.serviceWorker.addEventListener('controllerchange', () => {
-    if (!hadController || reloading) return;
-    reloading = true;
+  let touched = false;
+  for (const type of ['pointerdown', 'keydown']) {
+    window.addEventListener(type, () => (touched = true), { capture: true, once: true });
+  }
+  let pending = false;
+  const reloadNow = () => {
     saveNow();
     location.reload();
+  };
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || pending) return;
+    pending = true;
+    if (!touched) reloadNow();
+    else document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && reloadNow());
   });
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
