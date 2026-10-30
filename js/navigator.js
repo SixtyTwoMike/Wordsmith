@@ -4,6 +4,7 @@
 
 import * as editor from './editor.js';
 import { estimatePages, isActStart } from './model.js';
+import { pageCount } from './pdf.js';
 import * as snippet from './snippet.js';
 
 let sheet;
@@ -92,7 +93,7 @@ function render() {
   const runtime = pages < 1 ? '<1' : pages.toFixed(1);
   sheet.querySelector('#outlineStats').textContent =
     `${scenes.length} scene${scenes.length === 1 ? '' : 's'} · ` +
-    `${Math.max(1, Math.ceil(pages))} pp · ~${runtime} min`;
+    `${pageCount(els)} pp · ~${runtime} min`;
 
   renderActs(els, pages);
 

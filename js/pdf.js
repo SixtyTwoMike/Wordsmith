@@ -162,6 +162,11 @@ function assemble(streams, title) {
   return out;
 }
 
+// Pages in the exported script (title page not counted).
+export function pageCount(elements) {
+  return Math.max(1, paginate(layoutLines(elements || [])).length);
+}
+
 export function toPdf(script) {
   const streams = [];
   if (hasTitlePage(script)) streams.push(titlePage(script));

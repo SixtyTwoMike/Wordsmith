@@ -1295,6 +1295,71 @@ test.describe('web / desktop', () => {
     expect(blocks.slice(-2).map((b) => [b.type, b.text])).toEqual([['character', 'SA'], ['dialogue', '']]);
   });
 
+  test('timeline dial: page ruler, scene marks, click and ⌥↓ to jump', async ({ page }) => {
+    // A three-scene script about four pages long, put in storage before
+    // the app starts (the app saves its own state as a page unloads).
+    await page.addInitScript(() => {
+      if (sessionStorage.getItem('seeded')) return;
+      sessionStorage.setItem('seeded', '1');
+      const el = (type, text) => ({ id: Math.random().toString(36).slice(2), type, text });
+      const beats = (n, w) => Array.from({ length: n }, (_, i) => el('action', `${w} beat ${i + 1}.`));
+      const s = {
+        id: 'tl', title: 'Dial', createdAt: 1, updatedAt: 1,
+        elements: [
+          el('marker', 'ACT ONE'),
+          el('scene', 'INT. DINER - NIGHT'), ...beats(40, 'Diner'),
+          el('scene', 'EXT. ROOF - NIGHT'), ...beats(40, 'Roof'),
+          el('scene', 'INT. CAR - DAWN'), ...beats(30, 'Car'),
+        ],
+      };
+      localStorage.setItem('wordsmith.scripts.v1', JSON.stringify({ tl: s }));
+      localStorage.setItem('wordsmith.scriptIndex.v1', JSON.stringify({ current: 'tl', scripts: [{ id: 'tl', title: 'Dial', createdAt: 1, updatedAt: 1 }] }));
+    });
+    await page.goto('/');
+    const tl = page.locator('#timeline');
+    await expect(tl).toBeVisible();
+    expect(await tl.locator('.tl-page').count()).toBeGreaterThanOrEqual(4);
+    await expect(tl.locator('.tl-mark')).toHaveText(['ACT ONE', 'DINER', 'ROOF', 'CAR']);
+    await expect(tl.locator('.tl-readout')).toHaveText('1');
+
+    // Click a scene: the script scrolls there and the needle follows.
+    await tl.locator('.tl-mark', { hasText: 'CAR' }).click();
+    await expect(tl.locator('.tl-mark.tl-current')).toHaveText('CAR');
+    const carPage = await tl.locator('.tl-mark', { hasText: 'CAR' }).getAttribute('title');
+    await expect(tl.locator('.tl-readout')).toHaveText(carPage.match(/p\. (\d+)/)[1]);
+    await expect(page.locator('#page .el.active textarea')).toHaveValue(/INT\. CAR - DAWN/i);
+
+    // ⌥↑ goes back a scene.
+    await page.keyboard.press('Alt+ArrowUp');
+    await expect(tl.locator('.tl-mark.tl-current')).toHaveText('ROOF');
+
+    // Narrow windows hide it.
+    await page.setViewportSize({ width: 900, height: 800 });
+    await expect(tl).toBeHidden();
+  });
+
+  test('Option+number works with nothing focused, not in the title field', async ({ page }) => {
+    await page.goto('/');
+    await page.locator('#page .el').first().click();
+    await page.keyboard.type('INT. DINER - NIGHT');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Sarah');
+    await page.keyboard.press('Enter');
+    await page.keyboard.type('Hi.');
+    await page.evaluate(() => document.activeElement.blur());
+    await page.keyboard.press('Alt+Digit1');
+    const blocks = await getBlocks(page);
+    expect(blocks.slice(-2).map((b) => [b.type, b.text])).toEqual([['character', 'SARAH'], ['dialogue', '']]);
+    // In the title, Option+1 is left to the system (it types a symbol).
+    await page.locator('#title').focus();
+    const handled = await page.evaluate(() => {
+      const e = new KeyboardEvent('keydown', { code: 'Digit1', key: '¡', altKey: true, bubbles: true, cancelable: true });
+      document.getElementById('title').dispatchEvent(e);
+      return e.defaultPrevented;
+    });
+    expect(handled).toBe(false);
+  });
+
   test('mouse: wheel scrolls a chip row, right-click opens a character', async ({ page }) => {
     await page.goto('/');
     await page.locator('#page .el').first().click();

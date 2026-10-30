@@ -52,6 +52,7 @@ export function layoutLines(els) {
       lines.push({
         text: t,
         type: el.type,
+        id: el.id, // lets the timeline find each element's page
         col: st.col,
         bold: st.bold,
         underline: st.underline,

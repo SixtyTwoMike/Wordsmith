@@ -56,6 +56,7 @@ export function init() {
     profile.open(chip.textContent);
   });
   editor.onKey(onKey);
+  document.addEventListener('keydown', onCharKey, true);
   // Holding Option/Alt shows each character chip's number.
   const showKeys = (on) => document.body.classList.toggle('show-char-keys', on);
   document.addEventListener('keydown', (e) => showKeys(e.key === 'Alt' || (e.altKey && !e.metaKey && !e.ctrlKey)));
@@ -266,12 +267,20 @@ function buildChips(type) {
 //    swallows AL.
 let dismissed = null; // text the writer dismissed a suggestion for
 
+// Option+digit is caught at the document (capture phase), so it works
+// wherever focus is — script line, chip, or nothing — except other text
+// fields, where Option+digit should still type ¡ ™ £ and friends.
+function onCharKey(e) {
+  if (!e.altKey || e.metaKey || e.ctrlKey || !/^Digit[1-9]$/.test(e.code)) return;
+  const t = e.target;
+  if (t.closest && t.closest('input, textarea, [contenteditable]') && t.id !== 'blockInput') return;
+  e.preventDefault(); // never type the Option-symbol into the script
+  e.stopPropagation();
+  const chip = charChipsEl.querySelectorAll('.chip-char')[Number(e.code.slice(5)) - 1];
+  if (chip) chip._act();
+}
+
 function onKey(e) {
-  if (e.altKey && !e.metaKey && !e.ctrlKey && /^Digit[1-9]$/.test(e.code)) {
-    const chip = charChipsEl.querySelectorAll('.chip-char')[Number(e.code.slice(5)) - 1];
-    if (chip) chip._act();
-    return true; // never type the Option-symbol either way
-  }
   if (editor.activeType() !== 'character') return false;
   const text = editor.activeText() || '';
   if (e.key === 'Escape' && document.querySelector('#quickbar .chip-suggest')) {

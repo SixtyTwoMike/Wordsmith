@@ -43,7 +43,7 @@
     --dim: #9aa0ab;
     --accent: #e0a458;
     --accent-soft: rgba(224, 164, 88, 0.14);
-    --accent-line: var(--accent-line);
+    --accent-line: rgba(224, 164, 88, 0.4);
     --on-accent: #1a1408;
     --chip-bg: rgba(255, 255, 255, 0.08);
     --press: rgba(255, 255, 255, 0.12);
@@ -70,7 +70,7 @@
   --dim: #9aa0ab;
   --accent: #e0a458;
   --accent-soft: rgba(224, 164, 88, 0.14);
-  --accent-line: var(--accent-line);
+  --accent-line: rgba(224, 164, 88, 0.4);
   --on-accent: #1a1408;
   --chip-bg: rgba(255, 255, 255, 0.08);
   --press: rgba(255, 255, 255, 0.12);
@@ -1084,4 +1084,121 @@ body.show-char-keys .chip-char[data-key]::before {
 }
 @media (hover: hover) and (pointer: fine) {
   .chip-suggest::after { content: ' ↵'; opacity: 0.55; font-weight: 600; }
+}
+
+/* ---------- timeline dial (wide desktop windows) ---------- */
+/* A ruler scale that slides past a fixed needle, sitting just left of the
+   page column. Quarter/half-page ticks are background gradients; page
+   ticks, scene and act marks are positioned on the scale. */
+#timeline[hidden] { display: none; }
+#timeline {
+  --pp: 56px; /* PX_PER_PAGE in timeline.js */
+  --tick: var(--ink-faint);
+  position: fixed;
+  top: 92px;
+  bottom: 124px;
+  left: max(12px, calc((100vw - var(--col, 780px)) / 2 - 232px));
+  width: 200px;
+  z-index: 5;
+  user-select: none;
+  -webkit-user-select: none;
+}
+.tl-window {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+  /* Fade both ends, like a drum turning away. */
+  -webkit-mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent);
+  mask-image: linear-gradient(transparent, #000 22%, #000 78%, transparent);
+}
+.tl-window.tl-dragging { cursor: grabbing; }
+.tl-scale { position: absolute; left: 0; right: 0; top: 0; z-index: 1; will-change: transform; }
+.tl-ticks {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 16px;
+  background:
+    repeating-linear-gradient(to bottom, var(--tick) 0 1px, transparent 1px calc(var(--pp) / 2)) left top / 16px 100% no-repeat,
+    repeating-linear-gradient(to bottom, var(--tick) 0 1px, transparent 1px calc(var(--pp) / 4)) left top / 8px 100% no-repeat;
+}
+.tl-page {
+  position: absolute;
+  left: 0;
+  width: 26px;
+  height: 1px;
+  background: var(--dim);
+}
+.tl-page span {
+  position: absolute;
+  left: 31px;
+  top: -7px;
+  font: 600 10px/14px -apple-system, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  color: var(--dim);
+}
+.tl-mark {
+  position: absolute;
+  left: 64px;
+  max-width: calc(100% - 64px);
+  transform: translateY(-50%);
+  padding: 1px 6px 1px 12px;
+  border-radius: 4px;
+  border: none;
+  background: none;
+  color: var(--dim);
+  font: 600 10.5px/13px -apple-system, system-ui, sans-serif;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  cursor: pointer;
+}
+/* Each scene's own tick, between the page numbers and its label. */
+.tl-mark::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 8px;
+  height: 2px;
+  border-radius: 1px;
+  background: var(--accent-line);
+}
+/* The needle runs behind the scale; the current label gets the paper
+   colour so the line stops at it rather than striking it through. */
+.tl-mark:hover, .tl-mark.tl-current { color: var(--text); }
+.tl-mark.tl-current { background: var(--paper); }
+.tl-mark.tl-current::before { background: var(--accent); width: 10px; }
+.tl-mark.tl-crowded { color: transparent; }
+.tl-mark.tl-crowded:hover { color: var(--text); background: var(--paper); z-index: 1; }
+.tl-mark.tl-act { color: var(--accent); font-weight: 800; letter-spacing: 0.08em; transform: translateY(-135%); }
+.tl-mark.tl-act::before { background: var(--accent); width: 10px; height: 2px; }
+.tl-needle {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  border-top: 1.5px solid var(--accent);
+  pointer-events: none;
+}
+.tl-readout {
+  position: absolute;
+  z-index: 2;
+  left: 24px;
+  top: 50%;
+  pointer-events: none;
+  transform: translateY(-50%);
+  min-width: 26px;
+  padding: 2px 6px;
+  border-radius: 9px;
+  background: var(--accent);
+  color: var(--on-accent);
+  font: 800 11px/14px -apple-system, system-ui, sans-serif;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
 }

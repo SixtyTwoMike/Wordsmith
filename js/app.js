@@ -4,7 +4,7 @@
 
 // store.js runs the v1->v2 migration at its own module load, before any
 // module reads storage — so the catalog and stats are already in v2 shape.
-import { estimatePages } from './model.js';
+import { pageCount } from './pdf.js';
 import * as scripts from './scripts.js';
 import * as suggest from './suggest.js';
 import * as editor from './editor.js';
@@ -18,6 +18,8 @@ import * as profile from './profile.js';
 import * as snippet from './snippet.js';
 import * as prefs from './prefs.js';
 import * as review from './review.js';
+import * as timeline from './timeline.js';
+import { flush as flushStore } from './store.js';
 
 prefs.applyTheme();
 prefs.applyIcon();
@@ -52,12 +54,13 @@ exporter.init(() => scripts.syncMeta(editor.getScript()));
 profile.init();
 snippet.init();
 review.init(() => scripts.syncMeta(editor.getScript()));
+timeline.init();
 
-// Live page count in the header (1 page ≈ 1 minute of screen time).
+// Live page count in the header — the exported PDF's real pagination, so
+// it agrees with the timeline and the file (1 page ≈ 1 minute on screen).
 const pageCountEl = document.getElementById('pageCount');
 function updatePageCount() {
-  const pages = estimatePages(editor.getScript().elements);
-  pageCountEl.textContent = Math.max(1, Math.ceil(pages));
+  pageCountEl.textContent = pageCount(editor.getScript().elements);
 }
 editor.onUpdate(updatePageCount);
 updatePageCount();
@@ -254,6 +257,26 @@ if (!touch) {
   document.getElementById('redoBtn').title = mac ? 'Redo (⇧⌘Z)' : 'Redo (Ctrl+Y)';
 }
 
+// Autosave is debounced, so write pending edits whenever the page is
+// hidden or closed (tab close, app switch, the update reload below).
+function saveNow() {
+  editor.commitActive();
+  flushStore();
+}
+window.addEventListener('pagehide', saveNow);
+document.addEventListener('visibilitychange', () => document.visibilityState === 'hidden' && saveNow());
+
 if ('serviceWorker' in navigator) {
+  // A new version's worker takes over in the background (skipWaiting +
+  // claim) while this page still runs the old code. Reload once onto it,
+  // saving first, so one reload is enough to pick up an update.
+  const hadController = !!navigator.serviceWorker.controller;
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;
+    reloading = true;
+    saveNow();
+    location.reload();
+  });
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
